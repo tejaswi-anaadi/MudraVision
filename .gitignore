@@ -1,0 +1,14 @@
+# Local Claude Code workspace config (per-developer; not for publishing)
+.claude/
+
+# macOS metadata
+.DS_Store
+
+# Editor / OS junk
+*.swp
+*~
+.idea/
+.vscode/
+
+# Logs
+*.log

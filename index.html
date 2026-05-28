@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="theme-color" content="#06010f" />
+  <title>Mudra Vision — Learn and practise Bharatanāṭyam mudrās</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Tiro+Devanagari+Sanskrit:ital@0;1&family=Manrope:wght@300;400;500;600;700;800&family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,400&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body data-view="learn">
+
+  <!-- ======================= Nav ======================= -->
+  <nav class="nav">
+    <a href="#learn" class="brand" data-go="learn">
+      <span class="brand-mark">मुद्रा</span>
+      <span class="brand-text">Mudra<span class="brand-accent">Vision</span></span>
+    </a>
+    <div class="nav-tabs">
+      <button class="nav-tab" data-go="learn">Learn</button>
+      <button class="nav-tab" data-go="capture">Capture</button>
+      <button class="nav-tab" data-go="practice">Practice ›</button>
+    </div>
+  </nav>
+
+  <!-- ===================== LEARN VIEW ===================== -->
+  <main id="learn-view" class="view">
+    <section class="hero">
+      <div class="hero-inner">
+        <div class="hero-eyebrow">मुद्रा विज्ञान · The Science of Gesture</div>
+        <h1 class="hero-title">
+          The hands speak<br/>
+          <em>before the dancer does.</em>
+        </h1>
+        <p class="hero-sub">
+          A self-paced introduction to the <strong>hastas</strong> of Bharatanāṭyam —
+          and a live camera that recognises them as you form them.
+        </p>
+        <div class="hero-cta">
+          <button class="btn btn-primary" data-go="practice">Open the camera ›</button>
+          <button class="btn btn-ghost" data-go="capture">Scan your own mudra</button>
+          <a href="#about" class="btn btn-ghost btn-text-only">Learn first</a>
+        </div>
+      </div>
+      <div class="hero-decor" aria-hidden="true">
+        <div class="hero-glyph" id="hero-glyph"></div>
+      </div>
+    </section>
+
+    <section id="about" class="essay">
+      <article>
+        <h2>What is Bharatanāṭyam?</h2>
+        <p>
+          Bharatanāṭyam is one of the oldest classical dance forms of India,
+          its grammar laid down in the <em>Nāṭyaśāstra</em> attributed to the
+          sage Bharata (c. 200 BCE – 200 CE) and refined a millennium later in
+          Nandikeśvara's <em>Abhinaya Darpaṇa</em>. It originated in the
+          temples of Tamil Nadu as <em>sadir</em>, danced by the
+          <em>devadāsīs</em>, and was reformed and brought to the stage in the
+          early twentieth century by figures such as Rukmini Devi Arundale and
+          T. Balasaraswati.
+        </p>
+        <p>
+          The dance unfolds in two complementary registers — <em>nṛtta</em>,
+          pure rhythmic movement, and <em>nṛtya</em>, expressive narrative
+          gesture. Its vocabulary is precise: every step, every glance, every
+          shape of the hand carries a definite meaning.
+        </p>
+      </article>
+      <article>
+        <h2>And what are mudrās?</h2>
+        <p>
+          <strong>Mudrā</strong> ("seal") — also called <strong>hasta</strong>
+          in the dance treatises — is the precise configuration of one or both
+          hands. The dancer uses them to name objects, perform actions, summon
+          deities, and trace whole stories without uttering a word.
+        </p>
+        <p>
+          Each gesture carries many <em>viniyogas</em> (applications). The
+          flat-handed <em>Patāka</em> can be a cloud, a forest, a river, a wave,
+          the act of denial, or the start of a dance — fixed by context, by the
+          dancer's gaze, and by the rasa being evoked. The two great families
+          are the twenty-eight <strong>Asamyukta</strong> and the twenty-four
+          <strong>Samyukta</strong> hastas, from which the <em>Devatā</em> and
+          <em>Daśāvatāra</em> hastas are built.
+        </p>
+        <p class="essay-aside">
+          Browse below to learn. Open the camera to practise. Or use
+          <strong>Capture</strong> to scan one of your own gestures from five
+          angles — it'll be recognised on the live camera immediately, no
+          reload required.
+        </p>
+      </article>
+    </section>
+
+    <section id="mudra-sections" class="catalog"></section>
+
+    <section class="closing">
+      <h3>Ready to try?</h3>
+      <p>Open the camera and form a mudrā with your hand in clear view.</p>
+      <button class="btn btn-primary btn-lg" data-go="practice">Open the camera ›</button>
+      <p class="closing-foot">Press <kbd>D</kbd> in Practice to see live per-finger debug info.</p>
+    </section>
+  </main>
+
+  <!-- ===================== CAPTURE VIEW ===================== -->
+  <main id="capture-view" class="view">
+
+    <!-- 1. Name + (optional) upgrade picker -->
+    <section id="capture-form-panel" class="capture-panel">
+      <h1 class="capture-title">Capture a mudrā</h1>
+      <p class="capture-sub">
+        Two quick angles — front and a sideways tilt. We segment your hand
+        out of the background and add it to the live recogniser immediately;
+        nothing is uploaded.
+      </p>
+      <form id="capture-form" class="capture-form">
+        <label class="form-label">
+          <span>Name</span>
+          <input id="capture-name" type="text" placeholder="e.g. Patāka, or your own name" required maxlength="40" />
+        </label>
+        <label class="form-label">
+          <span>Upgrades an existing mudrā? (optional — tags it "· 3D")</span>
+          <select id="capture-upgrade">
+            <option value="">— None, brand-new mudrā —</option>
+          </select>
+        </label>
+        <div class="capture-form-actions">
+          <button type="submit" class="btn btn-primary">Start capture ›</button>
+          <button type="button" class="btn btn-ghost" data-go="learn">Cancel</button>
+        </div>
+      </form>
+    </section>
+
+    <!-- 2. Live capture stage with target ring + steps -->
+    <section id="capture-stage" class="capture-panel hidden">
+      <div class="capture-camera-wrap">
+        <video id="capture-webcam" autoplay playsinline muted></video>
+        <canvas id="capture-overlay"></canvas>
+        <div id="capture-ring" class="capture-ring" aria-hidden="true"></div>
+        <div id="capture-flash" class="capture-flash" aria-hidden="true"></div>
+        <!-- Big green tick overlay — animates when the angle is captured -->
+        <div id="capture-big-tick" class="big-tick" aria-hidden="true">
+          <svg viewBox="0 0 64 64" class="big-tick-svg">
+            <circle cx="32" cy="32" r="28" />
+            <path d="M18 33 L28 43 L46 22" />
+          </svg>
+          <div class="tick-label">Captured</div>
+        </div>
+      </div>
+      <div class="capture-instructions">
+        <div class="capture-arrow-row">
+          <span id="capture-step-arrow" class="capture-step-arrow">•</span>
+          <div>
+            <div id="capture-step-label" class="capture-step-label">Angle 1 of 5</div>
+            <div id="capture-step-instr" class="capture-step-instr">Front — face the camera directly.</div>
+          </div>
+        </div>
+        <div id="capture-step-progress" class="capture-step-progress"></div>
+        <!-- Three live gates: each turns green when satisfied -->
+        <div class="capture-checks">
+          <span id="chk-pos"    class="cap-check"><span class="cap-check-mark">✓</span> Position</span>
+          <span id="chk-orient" class="cap-check"><span class="cap-check-mark">✓</span> Orientation</span>
+          <span id="chk-steady" class="cap-check"><span class="cap-check-mark">✓</span> Steady</span>
+        </div>
+        <div class="capture-hold">
+          <span>Hold steady</span>
+          <div class="hold-bar"><div id="capture-hold-fill"></div></div>
+        </div>
+        <button type="button" class="btn btn-ghost" data-go="learn">Cancel capture</button>
+      </div>
+    </section>
+
+    <!-- 3. Review screen with 3D viewer + photo turntable -->
+    <section id="capture-review" class="capture-panel hidden">
+      <h2 class="capture-title">Review your capture</h2>
+      <div class="review-grid">
+        <div class="review-cell">
+          <h3>3D skeleton</h3>
+          <p class="review-hint">Drag to rotate.</p>
+          <div id="review-skeleton" class="review-skeleton"></div>
+        </div>
+        <div class="review-cell">
+          <h3>Photo turntable</h3>
+          <p class="review-hint">Drag horizontally to scrub through angles.</p>
+          <div id="review-turntable" class="review-turntable"></div>
+        </div>
+      </div>
+      <div class="review-meta">
+        <h3>
+          <span id="review-display-name">—</span>
+          <span id="review-3d-tag" class="threed-badge">3D</span>
+        </h3>
+        <details class="review-extra">
+          <summary>Add Sanskrit / IAST / English / usage (optional)</summary>
+          <div class="review-extra-grid">
+            <label><span>Devanāgarī</span><input id="review-sa" type="text" maxlength="40"></label>
+            <label><span>IAST</span><input id="review-iast" type="text" maxlength="40"></label>
+            <label><span>English</span><input id="review-en" type="text" maxlength="40"></label>
+            <label class="full"><span>Viniyoga (usage)</span><input id="review-usage" type="text" maxlength="200"></label>
+          </div>
+        </details>
+      </div>
+      <div class="review-actions">
+        <button id="capture-save-btn" class="btn btn-primary" type="button">Save mudrā</button>
+        <button id="capture-retake-btn" class="btn btn-ghost" type="button">Retake</button>
+      </div>
+    </section>
+  </main>
+
+  <!-- ===================== PRACTICE VIEW ===================== -->
+  <main id="practice-view" class="view">
+    <div class="stage">
+      <video id="webcam" autoplay playsinline muted></video>
+      <canvas id="overlay"></canvas>
+      <div class="vignette" aria-hidden="true"></div>
+      <button id="back-to-learn" class="back-btn" data-go="learn">‹ Back to Learn</button>
+
+      <section class="status-panel" aria-live="polite">
+        <div class="status-row">
+          <div class="status-dot"></div>
+          <div id="status-text">Initialising…</div>
+        </div>
+        <div class="conf-bar"><div id="conf-fill"></div></div>
+        <div id="hint" class="hint"></div>
+      </section>
+
+      <aside id="card" class="card" aria-live="polite"></aside>
+
+      <pre id="debug" class="debug" aria-hidden="true"></pre>
+
+      <div id="loader" class="loader visible">
+        <div class="loader-pulse"></div>
+        <span>Initialising…</span>
+      </div>
+    </div>
+  </main>
+
+  <!-- Toast for confirmations -->
+  <div id="toast" class="toast"></div>
+
+  <script type="module" src="app.js"></script>
+</body>
+</html>
