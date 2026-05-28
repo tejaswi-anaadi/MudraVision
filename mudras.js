@@ -37,7 +37,9 @@ export const MUDRAS = [
       { type:'curl', finger:'pinky',  state:'extended', weight:1 },
       { type:'curl', finger:'thumb',  state:['curled','half'], weight:0.7 },
       { type:'thumbIndexAngle', max:50, weight:0.5 },
-      { type:'spread', max:0.16, weight:0.5 },
+      // Fingers reasonably together — allows natural finger gap. Tightened
+      // separation is captured by Haṃsapakṣa's notTouch instead.
+      { type:'spread', max:0.22, weight:0.4 },
     ],
   },
   {
@@ -133,7 +135,16 @@ export const MUDRAS = [
     names: { sa: 'शुकतुण्ड', iast: 'Śukatuṇḍa', en: "Parrot's beak" },
     howto: 'Arāla with the ring finger also bent.',
     usage: 'Shooting an arrow, hurling a spear, mystery, fierce remembrance.',
-    hands: 1, recognize: false, reliable: false,
+    hands: 1, recognize: true, reliable: false,
+    constraints: [
+      { type:'curl', finger:'index',  state:'half', weight:1.2 },
+      { type:'curl', finger:'middle', state:'extended', weight:1 },
+      { type:'curl', finger:'ring',   state:'half', weight:1.2 },
+      { type:'curl', finger:'pinky',  state:'extended', weight:1 },
+      { type:'curl', finger:'thumb',  state:['half','curled'], weight:0.5 },
+      // Distinguishes from Arāla (which has ring extended) and Kaṅgula
+      // (which has ring fully curled, not half).
+    ],
   },
   {
     id: 'mushti', category: 'asamyukta', svg: 'mushti',
@@ -325,9 +336,23 @@ export const MUDRAS = [
   {
     id: 'chatura', category: 'asamyukta', svg: 'chatura',
     names: { sa: 'चतुर', iast: 'Catura', en: 'Clever / four' },
-    howto: 'Four fingers extended horizontally and together; thumb tucked at the base of the index.',
+    howto: 'Four fingers extended horizontally and together; thumb tucked at the base of the index, palm facing down.',
     usage: 'Small quantity, gold, eye, musk, difference, cunning, intellect, refinement.',
-    hands: 1, recognize: false, reliable: false,
+    hands: 1, recognize: true, reliable: false,
+    constraints: [
+      { type:'curl', finger:'index',  state:'extended', weight:1 },
+      { type:'curl', finger:'middle', state:'extended', weight:1 },
+      { type:'curl', finger:'ring',   state:'extended', weight:1 },
+      { type:'curl', finger:'pinky',  state:'extended', weight:1 },
+      // Distinguishing feature: thumb is TUCKED at the index base (not
+      // crossed all the way over the palm as in Pataka).
+      { type:'curl', finger:'thumb',  state:'half', weight:1.1 },
+      // Four fingers held together (small spread).
+      { type:'spread', max:0.13, weight:0.6 },
+      // Thumb is close to the index MCP — distinguishes Catura's
+      // "tucked" thumb from Pataka's "across the palm" thumb.
+      { type:'thumbIndexAngle', max:35, weight:0.7 },
+    ],
   },
   {
     id: 'bhramara', category: 'asamyukta', svg: 'bhramara',
@@ -360,16 +385,41 @@ export const MUDRAS = [
   {
     id: 'hamsapaksha', category: 'asamyukta', svg: 'hamsapaksha',
     names: { sa: 'हंसपक्ष', iast: 'Haṃsapakṣa', en: 'Swan feather' },
-    howto: 'Three fingers (index, middle, ring) extended together; little finger raised; thumb gently bent.',
+    howto: 'Three fingers (index, middle, ring) extended together; little finger raised separately; thumb gently bent.',
     usage: 'The number six, building a bridge, marking, completing, a heap.',
-    hands: 1, recognize: false, reliable: false,
+    hands: 1, recognize: true, reliable: false,
+    constraints: [
+      { type:'curl', finger:'index',  state:'extended', weight:1 },
+      { type:'curl', finger:'middle', state:'extended', weight:1 },
+      { type:'curl', finger:'ring',   state:'extended', weight:1 },
+      { type:'curl', finger:'pinky',  state:'extended', weight:1 },
+      { type:'curl', finger:'thumb',  state:['half','curled'], weight:0.5 },
+      // Distinguishing feature: pinky is held DEFINITELY apart from ring
+      // (the "feather" — the little finger held separately, NOT just the
+      // natural finger gap). The threshold is well above the natural
+      // gap of fingers-held-together (~0.20) so this only fires for a
+      // clearly raised little finger.
+      { type:'notTouch', fingers:['ring','pinky'], threshold:0.38, weight:1.2 },
+    ],
   },
   {
     id: 'samdamsha', category: 'asamyukta', svg: 'samdamsha',
     names: { sa: 'संदंश', iast: 'Saṃdaṃśa', en: 'Pincers' },
-    howto: 'Padmakośa held in a pinching action — fingertips moving toward the thumb.',
+    howto: 'Padmakośa held with the thumb close to the other four fingertips (pinching pose). Classically the fingers open and close — we recognise the closed pinch shape.',
     usage: 'Sacrifice, a worm, fear, generosity, plucking thorns, doubt.',
-    hands: 1, recognize: false, reliable: false,
+    hands: 1, recognize: true, reliable: false,
+    constraints: [
+      // Same cup shape as Padmakośa but the thumb has come in close to
+      // the index/middle tips (pinching position).
+      { type:'curl', finger:'index',  state:'half', weight:1 },
+      { type:'curl', finger:'middle', state:'half', weight:1 },
+      { type:'curl', finger:'ring',   state:'half', weight:1 },
+      { type:'curl', finger:'pinky',  state:'half', weight:1 },
+      { type:'curl', finger:'thumb',  state:['half','extended'], weight:0.7 },
+      // Pinch markers: thumb tip close to index/middle tips.
+      { type:'touch', fingers:['thumb','index'],  threshold:0.32, weight:1 },
+      { type:'touch', fingers:['thumb','middle'], threshold:0.36, weight:0.6 },
+    ],
   },
   {
     id: 'mukula', category: 'asamyukta', svg: 'mukula',
@@ -388,9 +438,22 @@ export const MUDRAS = [
   {
     id: 'tamrachuda', category: 'asamyukta', svg: 'tamrachuda',
     names: { sa: 'ताम्रचूड', iast: 'Tāmracūḍa', en: 'Rooster' },
-    howto: 'Mukula with the index finger slightly extended and bent.',
+    howto: 'Like Mukula but the index finger is slightly extended away from the cluster — a four-finger meeting with the index pointing.',
     usage: 'Cock, crane, camel, calf, sparrow, indicating speed.',
-    hands: 1, recognize: false, reliable: false,
+    hands: 1, recognize: true, reliable: false,
+    constraints: [
+      // Thumb, middle, ring, pinky cluster at a point — index stays free.
+      { type:'touch', fingers:['thumb','middle'], threshold:0.28, weight:1 },
+      { type:'touch', fingers:['thumb','ring'],   threshold:0.30, weight:1 },
+      { type:'touch', fingers:['thumb','pinky'],  threshold:0.34, weight:0.7 },
+      // Index is held away — half-bent or extended, but NOT at the cluster.
+      { type:'curl', finger:'index', state:['half','extended'], weight:0.9 },
+      { type:'notTouch', fingers:['thumb','index'], threshold:0.30, weight:0.9 },
+      // Other three fingers are bent (in the cluster).
+      { type:'curl', finger:'middle', state:['half','curled'], weight:0.6 },
+      { type:'curl', finger:'ring',   state:['half','curled'], weight:0.6 },
+      { type:'curl', finger:'pinky',  state:['half','curled'], weight:0.6 },
+    ],
   },
   {
     id: 'trishula', category: 'asamyukta', svg: 'trishula',
@@ -434,161 +497,261 @@ export const MUDRAS = [
     names: { sa: 'कपोत', iast: 'Kapota', en: 'Dove' },
     howto: 'Two Patāka hands joined at the base of the palms, opening at the fingertips.',
     usage: 'Reverent address, fear, conversing with an elder, the dove.',
-    hands: 2, recognize: false, reliable: false,
+    hands: 2, recognize: true, reliable: false,
+    components: ['pataka', 'pataka'],
+    twoHand: [
+      { type:'wristsClose', threshold:0.7, weight:1 },
+      { type:'bothPointUp', weight:0.7 },
+    ],
   },
   {
     id: 'karkata', category: 'samyukta', svg: 'karkata',
     names: { sa: 'कर्कट', iast: 'Karkaṭa', en: 'Crab' },
     howto: 'Fingers of both hands interlocked.',
     usage: 'A group, bending a branch, the crab, blowing the conch.',
-    hands: 2, recognize: false, reliable: false,
+    hands: 2, recognize: true, reliable: false,
+    twoHand: [
+      { type:'fingertipsInterspersed', weight:1.8 },
+      { type:'wristsClose', threshold:0.8, weight:0.5 },
+    ],
   },
   {
     id: 'swastika', category: 'samyukta', svg: 'swastika',
     names: { sa: 'स्वस्तिक', iast: 'Svastika', en: 'Crossed' },
     howto: 'Two Patāka hands crossed at the wrists.',
     usage: 'Directions, cloud, sky, seasons, contradiction.',
-    hands: 2, recognize: false, reliable: false,
+    hands: 2, recognize: true, reliable: false,
+    components: ['pataka', 'pataka'],
+    twoHand: [
+      { type:'handsCrossed', weight:1.6 },
+    ],
   },
   {
     id: 'dola', category: 'samyukta', svg: 'dola',
     names: { sa: 'दोल', iast: 'Dola', en: 'Swing' },
     howto: 'Both Patāka hands hanging down loosely at the sides.',
     usage: 'Beginning a dance, indecision, sorrow, swinging, casualness.',
-    hands: 2, recognize: false, reliable: false,
+    hands: 2, recognize: true, reliable: false,
+    components: ['pataka', 'pataka'],
+    twoHand: [
+      { type:'handsSideBySide', weight:1.2 },
+    ],
   },
   {
     id: 'pushpaputa', category: 'samyukta', svg: 'pushpaputa',
     names: { sa: 'पुष्पपुट', iast: 'Puṣpapuṭa', en: 'Casket of flowers' },
     howto: 'Both Sarpaśīrṣa hands joined along the little-finger sides, palms cupped upward.',
     usage: 'Receiving or offering flowers, water, offerings to a deity.',
-    hands: 2, recognize: false, reliable: false,
+    hands: 2, recognize: true, reliable: false,
+    components: ['sarpasirsha', 'sarpasirsha'],
+    twoHand: [
+      { type:'pinkySidesTouching', weight:1.6 },
+      { type:'palmsUpward', weight:1 },
+    ],
   },
   {
     id: 'utsanga', category: 'samyukta', svg: 'utsanga',
     names: { sa: 'उत्सङ्ग', iast: 'Utsaṅga', en: 'Embrace' },
     howto: 'Both Arāla hands crossed at the wrists in front of the chest, palms inward.',
     usage: 'Embrace, modesty, hugging a child, feeling of love.',
-    hands: 2, recognize: false, reliable: false,
+    hands: 2, recognize: true, reliable: false,
+    components: ['arala', 'arala'],
+    twoHand: [
+      { type:'handsCrossed', weight:1.5 },
+    ],
   },
   {
     id: 'shivalinga', category: 'samyukta', svg: 'shivalinga',
     names: { sa: 'शिवलिङ्ग', iast: 'Śivaliṅga', en: "Śiva's emblem" },
     howto: 'Left hand in Ardhacandra held horizontally; right hand in Śikhara placed upright on the left palm.',
     usage: "Śiva's emblem, sanctuary, the divine consciousness.",
-    hands: 2, recognize: false, reliable: false,
+    hands: 2, recognize: true, reliable: true,
+    components: ['ardhachandra', 'shikhara'],
+    twoHand: [
+      { type:'handsStacked', weight:1.5 },
+    ],
   },
   {
     id: 'katakavardhana', category: 'samyukta', svg: 'katakavardhana',
     names: { sa: 'कटकवर्धन', iast: 'Kaṭakavardhana', en: 'Extension of a link' },
     howto: 'Both Kaṭakāmukha hands with wrists crossed.',
     usage: 'Coronation, marriage, romantic union, embrace.',
-    hands: 2, recognize: false, reliable: false,
+    hands: 2, recognize: true, reliable: false,
+    components: ['katakamukha', 'katakamukha'],
+    twoHand: [
+      { type:'handsCrossed', weight:1.4 },
+    ],
   },
   {
     id: 'kartariswastika', category: 'samyukta', svg: 'kartariswastika',
     names: { sa: 'कर्तरीस्वस्तिक', iast: 'Kartarīsvastika', en: 'Crossed scissors' },
     howto: 'Both Kartarīmukha hands crossed at the wrists.',
     usage: 'Tree-tops, hills, mountain peaks.',
-    hands: 2, recognize: false, reliable: false,
+    hands: 2, recognize: true, reliable: false,
+    components: ['kartarimukha', 'kartarimukha'],
+    twoHand: [
+      { type:'handsCrossed', weight:1.4 },
+    ],
   },
   {
     id: 'shakata', category: 'samyukta', svg: 'shakata',
     names: { sa: 'शकट', iast: 'Śakaṭa', en: 'Cart' },
     howto: 'Both Bhramara hands joined with thumbs touching; palms forward.',
     usage: 'A cart, a chariot, the demon Śakaṭāsura.',
-    hands: 2, recognize: false, reliable: false,
+    hands: 2, recognize: true, reliable: false,
+    components: ['bhramara', 'bhramara'],
+    twoHand: [
+      { type:'thumbsHooked', weight:1.5 },
+      { type:'palmsTowardCamera', weight:0.6 },
+    ],
   },
   {
     id: 'shankha', category: 'samyukta', svg: 'shankha',
     names: { sa: 'शङ्ख', iast: 'Śaṅkha', en: 'Conch' },
     howto: 'Left thumb erect inside the right fist; right thumb touches the left index.',
-    usage: 'The conch shell, especially Viṣṇu\'s pāñcajanya.',
-    hands: 2, recognize: false, reliable: false,
+    usage: "The conch shell, especially Viṣṇu's pāñcajanya.",
+    hands: 2, recognize: true, reliable: false,
+    components: ['mushti', 'shikhara'],
+    twoHand: [
+      { type:'wristsClose', threshold:0.6, weight:1.2 },
+    ],
   },
   {
     id: 'chakra', category: 'samyukta', svg: 'chakra',
     names: { sa: 'चक्र', iast: 'Cakra', en: 'Discus' },
     howto: 'Both Ardhacandra hands crossed at the wrists with palms facing outward — a disc shape.',
     usage: "Viṣṇu's discus, a wheel, the cycle of time.",
-    hands: 2, recognize: false, reliable: false,
+    hands: 2, recognize: true, reliable: false,
+    components: ['ardhachandra', 'ardhachandra'],
+    twoHand: [
+      { type:'handsCrossed', weight:1.2 },
+      { type:'palmsTowardCamera', weight:0.6 },
+    ],
   },
   {
     id: 'samputa', category: 'samyukta', svg: 'samputa',
     names: { sa: 'सम्पुट', iast: 'Sampuṭa', en: 'Casket' },
     howto: 'Both Catura hands cupped together as if closing a small box.',
     usage: 'A casket, a treasure box, hiding something within.',
-    hands: 2, recognize: false, reliable: false,
+    hands: 2, recognize: true, reliable: false,
+    components: ['chatura', 'chatura'],
+    twoHand: [
+      { type:'wristsClose', threshold:0.6, weight:1.2 },
+      { type:'palmsTowardEachOther', weight:0.8 },
+    ],
   },
   {
     id: 'pasha', category: 'samyukta', svg: 'pasha',
     names: { sa: 'पाश', iast: 'Pāśa', en: 'Noose' },
     howto: 'Both index fingers linked at the second joint.',
     usage: 'A noose, opposition, fight, a chain, mutual attachment.',
-    hands: 2, recognize: false, reliable: false,
+    hands: 2, recognize: true, reliable: false,
+    components: ['suchi', 'suchi'],
+    twoHand: [
+      { type:'indexFingersLinked', weight:1.8 },
+    ],
   },
   {
     id: 'kilaka', category: 'samyukta', svg: 'kilaka',
     names: { sa: 'कीलक', iast: 'Kīlaka', en: 'Link' },
     howto: 'Two Mṛgaśīrṣa hands with the little fingers linked together.',
     usage: 'Loving conversation, affection, ease, intimate friendship.',
-    hands: 2, recognize: false, reliable: false,
+    hands: 2, recognize: true, reliable: false,
+    components: ['mrigashirsha', 'mrigashirsha'],
+    twoHand: [
+      { type:'pinkySidesTouching', weight:1.6 },
+    ],
   },
   {
     id: 'matsya', category: 'samyukta', svg: 'matsya',
     names: { sa: 'मत्स्य', iast: 'Matsya', en: 'Fish' },
     howto: 'Two Patāka palms placed back-to-back with thumbs spread out as fins.',
     usage: 'Fish, swimming, the avatāra Matsya.',
-    hands: 2, recognize: false, reliable: false,
+    hands: 2, recognize: true, reliable: false,
+    components: ['ardhachandra', 'ardhachandra'],
+    twoHand: [
+      { type:'palmsBackToBack', weight:1.4 },
+      { type:'wristsClose', threshold:0.5, weight:0.8 },
+    ],
   },
   {
     id: 'kurma', category: 'samyukta', svg: 'kurma',
     names: { sa: 'कूर्म', iast: 'Kūrma', en: 'Tortoise' },
     howto: 'Mṛgaśīrṣa on top of an inverted Mṛgaśīrṣa.',
     usage: 'Tortoise, the avatāra Kūrma supporting Mount Mandara.',
-    hands: 2, recognize: false, reliable: false,
+    hands: 2, recognize: true, reliable: false,
+    components: ['mrigashirsha', 'mrigashirsha'],
+    twoHand: [
+      { type:'handsStacked', weight:1.4 },
+    ],
   },
   {
     id: 'varaha', category: 'samyukta', svg: 'varaha',
     names: { sa: 'वराह', iast: 'Varāha', en: 'Boar' },
     howto: 'Two Mṛgaśīrṣa hands, one stacked on the other with ring fingers interlocked.',
     usage: 'The boar, the avatāra Varāha lifting the earth.',
-    hands: 2, recognize: false, reliable: false,
+    hands: 2, recognize: true, reliable: false,
+    components: ['mrigashirsha', 'mrigashirsha'],
+    twoHand: [
+      { type:'handsStacked', weight:1.1 },
+      { type:'wristsClose', threshold:0.7, weight:0.8 },
+    ],
   },
   {
     id: 'garuda', category: 'samyukta', svg: 'garuda',
     names: { sa: 'गरुड', iast: 'Garuḍa', en: 'Eagle' },
     howto: 'Both Ardhacandra hands with thumbs hooked, palms spread like wings.',
     usage: 'Garuḍa — the divine eagle, mount of Viṣṇu.',
-    hands: 2, recognize: false, reliable: false,
+    hands: 2, recognize: true, reliable: true,
+    components: ['ardhachandra', 'ardhachandra'],
+    twoHand: [
+      { type:'thumbsHooked', weight:1.6 },
+    ],
   },
   {
     id: 'nagabandha', category: 'samyukta', svg: 'nagabandha',
     names: { sa: 'नागबन्ध', iast: 'Nāgabandha', en: 'Serpent-bind' },
     howto: 'Two Sarpaśīrṣa hands crossed at the wrists.',
     usage: 'Serpent intertwined, bondage, a knot, indissoluble union.',
-    hands: 2, recognize: false, reliable: false,
+    hands: 2, recognize: true, reliable: false,
+    components: ['sarpasirsha', 'sarpasirsha'],
+    twoHand: [
+      { type:'handsCrossed', weight:1.4 },
+    ],
   },
   {
     id: 'khatva', category: 'samyukta', svg: 'khatva',
     names: { sa: 'खट्वा', iast: 'Khaṭvā', en: 'Bed' },
     howto: 'Two Catura hands held palm-up parallel to each other.',
     usage: 'A bed, a cot, a litter, a palanquin.',
-    hands: 2, recognize: false, reliable: false,
+    hands: 2, recognize: true, reliable: false,
+    components: ['chatura', 'chatura'],
+    twoHand: [
+      { type:'palmsUpward', weight:1.4 },
+      { type:'handsParallel', weight:0.6 },
+    ],
   },
   {
     id: 'bherunda', category: 'samyukta', svg: 'bherunda',
     names: { sa: 'भेरुण्ड', iast: 'Bheruṇḍa', en: 'Two-headed bird' },
     howto: 'Two Kapittha hands joined back-to-back at the wrists.',
     usage: 'A pair of birds, the mythical two-headed bird, lovers united.',
-    hands: 2, recognize: false, reliable: false,
+    hands: 2, recognize: true, reliable: false,
+    components: ['kapittha', 'kapittha'],
+    twoHand: [
+      { type:'palmsBackToBack', weight:1.4 },
+    ],
   },
   {
     id: 'avahittha', category: 'samyukta', svg: 'avahittha',
     names: { sa: 'अवहित्थ', iast: 'Avahittha', en: 'Dissimulation' },
     howto: 'Two Śukatuṇḍa hands gently turned downward toward the chest.',
     usage: 'Pretence, concealing a feeling, slenderness, weakness, a sigh.',
-    hands: 2, recognize: false, reliable: false,
+    hands: 2, recognize: true, reliable: false,
+    components: ['shukatunda', 'shukatunda'],
+    twoHand: [
+      { type:'palmsDownward', weight:1.4 },
+    ],
   },
 
   // ============================================================
@@ -599,34 +762,53 @@ export const MUDRAS = [
     names: { sa: 'ब्रह्मा', iast: 'Brahmā', en: 'The Creator' },
     howto: 'Left hand in Catura, right hand in Haṃsāsya.',
     usage: 'Lord Brahmā, the creator god; the four Vedas.',
-    hands: 2, recognize: false, reliable: false,
+    hands: 2, recognize: true, reliable: false,
+    components: ['chatura', 'hamsasya'],
+    twoHand: [
+      { type:'handsSideBySide', weight:0.6 },
+    ],
   },
   {
     id: 'vishnu', category: 'devata', svg: 'vishnu',
     names: { sa: 'विष्णु', iast: 'Viṣṇu', en: 'The Preserver' },
     howto: 'Both hands in Tripatāka.',
     usage: 'Lord Viṣṇu, the preserver, holding the conch, discus, mace, and lotus.',
-    hands: 2, recognize: false, reliable: false,
+    hands: 2, recognize: true, reliable: false,
+    components: ['tripataka', 'tripataka'],
+    twoHand: [
+      { type:'bothPointUp', weight:0.8 },
+      { type:'handsSideBySide', weight:0.4 },
+    ],
   },
   {
     id: 'shiva', category: 'devata', svg: 'shiva',
     names: { sa: 'शिव', iast: 'Śiva', en: 'The Auspicious' },
     howto: 'Left hand in Mṛgaśīrṣa, right hand in Tripatāka.',
     usage: 'Lord Śiva — the auspicious one, lord of yoga and destruction.',
-    hands: 2, recognize: false, reliable: false,
+    hands: 2, recognize: true, reliable: false,
+    components: ['mrigashirsha', 'tripataka'],
+    twoHand: [
+      { type:'handsSideBySide', weight:0.5 },
+    ],
   },
   {
     id: 'ganesha', category: 'devata', svg: 'ganesha',
     names: { sa: 'गणेश', iast: 'Gaṇeśa', en: 'The Elephant-faced' },
     howto: 'Both hands in Kapittha, held at the temples to suggest tusks.',
     usage: 'Lord Gaṇeśa, the remover of obstacles, son of Śiva and Pārvatī.',
-    hands: 2, recognize: false, reliable: false,
+    hands: 2, recognize: true, reliable: false,
+    components: ['kapittha', 'kapittha'],
+    twoHand: [
+      { type:'handsSideBySide', weight:0.8 },
+    ],
   },
   {
     id: 'lakshmi', category: 'devata', svg: 'lakshmi',
     names: { sa: 'लक्ष्मी', iast: 'Lakṣmī', en: 'The Goddess of Fortune' },
     howto: 'Both hands in Kapittha, tilted slightly upward by the shoulders.',
     usage: 'Goddess Lakṣmī, consort of Viṣṇu, bestower of prosperity.',
+    // Visually identical to Gaṇeśa — disabled in classifier to avoid lock-in
+    // ambiguity. Still shown in the catalog.
     hands: 2, recognize: false, reliable: false,
   },
   {
@@ -634,14 +816,22 @@ export const MUDRAS = [
     names: { sa: 'सरस्वती', iast: 'Sarasvatī', en: 'The Goddess of Learning' },
     howto: 'Both hands in Kaṭakāmukha — suggesting the vīṇā.',
     usage: 'Goddess Sarasvatī, presiding deity of speech, music, and the arts.',
-    hands: 2, recognize: false, reliable: false,
+    hands: 2, recognize: true, reliable: false,
+    components: ['katakamukha', 'katakamukha'],
+    twoHand: [
+      { type:'handsSideBySide', weight:0.6 },
+    ],
   },
   {
     id: 'durga', category: 'devata', svg: 'durga',
     names: { sa: 'दुर्गा', iast: 'Durgā', en: 'The Invincible Goddess' },
     howto: 'Left hand in Tripatāka, right hand in Ardhacandra.',
     usage: 'Goddess Durgā, slayer of the buffalo demon, bearer of weapons.',
-    hands: 2, recognize: false, reliable: false,
+    hands: 2, recognize: true, reliable: false,
+    components: ['tripataka', 'ardhachandra'],
+    twoHand: [
+      { type:'handsSideBySide', weight:0.5 },
+    ],
   },
 
   // ============================================================
@@ -652,6 +842,8 @@ export const MUDRAS = [
     names: { sa: 'मत्स्य', iast: 'Matsya', en: 'The Fish' },
     howto: 'Both Patāka hands back-to-back, thumbs spread as fins (the same as Matsya samyukta).',
     usage: "Viṣṇu's first avatāra — Matsya, the fish that rescues the Vedas.",
+    // Geometrically identical to Matsya samyukta — same gesture, different
+    // narrative label. Detection delegated to the Samyukta entry.
     hands: 2, recognize: false, reliable: false,
   },
   {
@@ -673,49 +865,78 @@ export const MUDRAS = [
     names: { sa: 'नरसिंह', iast: 'Narasiṃha', en: 'The Man-Lion' },
     howto: 'Left hand in Siṃhamukha, right hand in Tripatāka.',
     usage: "Viṣṇu's fourth avatāra — the lion-man who slew the demon Hiraṇyakaśipu.",
-    hands: 2, recognize: false, reliable: false,
+    hands: 2, recognize: true, reliable: false,
+    components: ['simhamukha', 'tripataka'],
+    twoHand: [
+      { type:'handsSideBySide', weight:0.6 },
+    ],
   },
   {
     id: 'vamana', category: 'dasavatara', svg: 'vamana',
     names: { sa: 'वामन', iast: 'Vāmana', en: 'The Dwarf' },
     howto: 'Both Muṣṭi hands held close to the body, low.',
     usage: "Viṣṇu's fifth avatāra — the dwarf who reclaimed the three worlds from King Bali in three strides.",
-    hands: 2, recognize: false, reliable: false,
+    hands: 2, recognize: true, reliable: false,
+    components: ['mushti', 'mushti'],
+    twoHand: [
+      { type:'handsSideBySide', weight:1 },
+    ],
   },
   {
     id: 'parashurama', category: 'dasavatara', svg: 'parashurama',
     names: { sa: 'परशुराम', iast: 'Paraśurāma', en: 'Rāma with the axe' },
     howto: 'Left hand in Ardhacandra, right hand in Muṣṭi as if gripping an axe.',
     usage: "Viṣṇu's sixth avatāra — the brahmin warrior wielding the axe.",
-    hands: 2, recognize: false, reliable: false,
+    hands: 2, recognize: true, reliable: false,
+    components: ['ardhachandra', 'mushti'],
+    twoHand: [
+      { type:'handsSideBySide', weight:0.6 },
+    ],
   },
   {
     id: 'rama', category: 'dasavatara', svg: 'rama',
     names: { sa: 'राम', iast: 'Rāma', en: 'Lord Rāma' },
     howto: 'Left hand in Kapittha, right hand in Śikhara — drawing the bow.',
     usage: "Viṣṇu's seventh avatāra — Rāma of Ayodhya, the ideal king.",
-    hands: 2, recognize: false, reliable: false,
+    hands: 2, recognize: true, reliable: false,
+    components: ['kapittha', 'shikhara'],
+    twoHand: [
+      { type:'handsSideBySide', weight:0.6 },
+    ],
   },
   {
     id: 'balarama', category: 'dasavatara', svg: 'balarama',
     names: { sa: 'बलराम', iast: 'Balarāma', en: "Krishna's brother" },
     howto: 'Left hand in Patāka, right hand in Muṣṭi — gripping the plough.',
     usage: "Viṣṇu's eighth avatāra (in some lists) — elder brother of Kṛṣṇa, wielder of the plough.",
-    hands: 2, recognize: false, reliable: false,
+    hands: 2, recognize: true, reliable: false,
+    components: ['pataka', 'mushti'],
+    twoHand: [
+      { type:'handsSideBySide', weight:0.6 },
+    ],
   },
   {
     id: 'krishna', category: 'dasavatara', svg: 'krishna',
     names: { sa: 'कृष्ण', iast: 'Kṛṣṇa', en: 'Lord Krishna' },
     howto: 'Both hands in Mṛgaśīrṣa held in front of the lips — the flute pose.',
     usage: "Viṣṇu's ninth avatāra — Kṛṣṇa playing the flute, the divine cowherd.",
-    hands: 2, recognize: false, reliable: false,
+    hands: 2, recognize: true, reliable: false,
+    components: ['mrigashirsha', 'mrigashirsha'],
+    twoHand: [
+      { type:'handsParallel', weight:0.8 },
+      { type:'handsSideBySide', weight:1 },
+    ],
   },
   {
     id: 'kalki', category: 'dasavatara', svg: 'kalki',
     names: { sa: 'कल्कि', iast: 'Kalki', en: 'The Future Avatāra' },
     howto: 'Right hand in Tripatāka, left hand in Patāka — pointing toward the future.',
     usage: "Viṣṇu's tenth and prophesied avatāra — the rider on the white horse, restorer of dharma.",
-    hands: 2, recognize: false, reliable: false,
+    hands: 2, recognize: true, reliable: false,
+    components: ['tripataka', 'pataka'],
+    twoHand: [
+      { type:'handsSideBySide', weight:0.6 },
+    ],
   },
 ];
 
