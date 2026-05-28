@@ -11,7 +11,7 @@ import { MUDRA_BY_ID, MUDRAS, CATEGORIES, MUDRAS_BY_CATEGORY } from './mudras.js
 import { getSvg } from './svg.js';
 import { mudraArt, renderVisual, getAvailableTypes, pickBaseVisual,
          setScannedFront, clearScannedFront, viewFromBuiltin, viewFromCapture,
-         wireImageFallbacks } from './art.js';
+         wireImageFallbacks, preloadSourcePhotos } from './art.js';
 import * as store from './store.js';
 import * as knn from './knn.js';
 import * as capture from './capture.js';
@@ -82,6 +82,14 @@ function viewForId(id, source) {
   wireNavigation();
   applyHashView();
   window.addEventListener('hashchange', applyHashView);
+  // After first paint, prefetch every source photo in the background so
+  // the Practice card paints instantly when a mudra locks (instead of
+  // hitting a fresh network fetch on the first detection).
+  if ('requestIdleCallback' in window) {
+    requestIdleCallback(preloadSourcePhotos, { timeout: 1500 });
+  } else {
+    setTimeout(preloadSourcePhotos, 1200);
+  }
 })();
 
 function populateUpgradeDropdown() {
@@ -576,12 +584,13 @@ function hideCard() {
 }
 
 // Practice card: shows the priority visual + a segmented toggle of the
-// available types (svg / source / scanned).
+// available types (svg / source / scanned). Photos are rendered EAGER so
+// they paint the moment the card appears, not after a fresh fetch.
 function renderPracticeCard(view) {
   const base = pickBaseVisual(view);
   const types = getAvailableTypes(view);
   return `
-    <div class="card-art" data-current-type="${base.type}">${renderVisual(view, base.type)}</div>
+    <div class="card-art" data-current-type="${base.type}">${renderVisual(view, base.type, { eager: true })}</div>
     <div class="card-toggle">
       ${types.map(t => `
         <button class="toggle-btn${t === base.type ? ' active' : ''}" data-type="${t}">${t}</button>
@@ -600,7 +609,7 @@ function wirePracticeToggle(root, view) {
     btn.addEventListener('click', () => {
       const t = btn.dataset.type;
       const artEl = root.querySelector('.card-art');
-      artEl.innerHTML = renderVisual(view, t);
+      artEl.innerHTML = renderVisual(view, t, { eager: true });
       artEl.dataset.currentType = t;
       root.querySelectorAll('.toggle-btn').forEach(b => b.classList.toggle('active', b === btn));
       wireImageFallbacks(artEl);

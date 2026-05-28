@@ -98,19 +98,40 @@ export function getAvailableTypes(view) {
 }
 
 // ============================================================
-// Rendering helpers — returns HTML string
+// Photo preloading — fill the browser cache after page boot so the
+// Practice card can render instantly once a mudra is locked. Without
+// this, lazy-loaded images fetched only when the <img> entered the DOM
+// added a visible 200–500 ms hop over the network.
 // ============================================================
-export function renderVisual(view, type) {
+let _preloadStarted = false;
+export function preloadSourcePhotos() {
+  if (_preloadStarted) return;
+  _preloadStarted = true;
+  for (const slug of PHOTO_IDS) {
+    const img = new Image();
+    img.decoding = 'async';
+    if ('fetchPriority' in img) img.fetchPriority = 'low';
+    img.src = `images/${slug}.png`;
+  }
+}
+
+// ============================================================
+// Rendering helpers — returns HTML string.
+// `opts.eager` forces immediate loading (no `loading="lazy"`) — used by
+// the Practice card so the photo paints the instant the card appears.
+// ============================================================
+export function renderVisual(view, type, opts = {}) {
   const v = getMudraVisuals(view);
+  const lazy = opts.eager ? '' : ' loading="lazy"';
   switch (type) {
     case 'scanned':
       return v.scanned
         ? `<img class="mudra-photo mudra-scanned" src="${v.scanned}" alt="" decoding="async">`
-        : renderVisual(view, 'svg');
+        : renderVisual(view, 'svg', opts);
     case 'source':
       return v.source
-        ? `<img class="mudra-photo" src="${v.source.url}" alt="" loading="lazy" decoding="async" data-source="${v.source.kind}">`
-        : renderVisual(view, 'svg');
+        ? `<img class="mudra-photo" src="${v.source.url}" alt=""${lazy} decoding="async" data-source="${v.source.kind}">`
+        : renderVisual(view, 'svg', opts);
     case 'svg':
     default:
       return `<div class="mudra-svg">${v.svg.markup}</div>`;
@@ -118,11 +139,12 @@ export function renderVisual(view, type) {
 }
 
 // Default base-priority art for cards.
-export function mudraArt(view) {
+export function mudraArt(view, opts = {}) {
   const base = pickBaseVisual(view);
+  const lazy = opts.eager ? '' : ' loading="lazy"';
   switch (base.type) {
     case 'scanned': return `<img class="mudra-photo mudra-scanned" src="${base.url}" alt="" decoding="async">`;
-    case 'source':  return `<img class="mudra-photo" src="${base.url}" alt="" loading="lazy" decoding="async" data-source="${base.kind}">`;
+    case 'source':  return `<img class="mudra-photo" src="${base.url}" alt=""${lazy} decoding="async" data-source="${base.kind}">`;
     case 'svg':     return `<div class="mudra-svg">${base.markup}</div>`;
   }
 }
