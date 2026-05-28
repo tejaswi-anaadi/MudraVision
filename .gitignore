@@ -12,3 +12,6 @@
 
 # Logs
 *.log
+
+# Pose-extraction model — fetched on demand by tools/extract_poses.py
+tools/hand_landmarker.task

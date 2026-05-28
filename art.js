@@ -34,6 +34,24 @@ function photoSource(slug) {
 }
 
 // ============================================================
+// 3D-pose registry — slugs of mudras that ship with a poses/{slug}.json
+// extracted from a real reference photo. app.js populates this on boot
+// from the file's `poses_index.json` so the renderer can offer the 3D
+// view as a toggle option without making a fetch for every mudra.
+// ============================================================
+const posesAvailable = new Set();
+export function setAvailablePoses(slugs) {
+  posesAvailable.clear();
+  for (const s of slugs) posesAvailable.add(s);
+}
+export function hasPose(view) {
+  // True if this view has either captured worldLandmarks OR a pose file.
+  if (view.kind === 'capture' && view.record?.angles?.[0]?.worldLandmarks?.length) return true;
+  const slug = view.builtinUpgrade || view.id;
+  return posesAvailable.has(slug);
+}
+
+// ============================================================
 // Scanned-photo registry — captured mudras' front-angle blob URLs.
 // Keyed by the built-in slug (for upgrades) AND the capture's own id.
 // app.js calls setScannedFront() after each capture is saved or loaded
@@ -94,6 +112,7 @@ export function getAvailableTypes(view) {
   const types = ['svg'];
   if (v.source) types.push('source');
   if (v.scanned) types.push('scanned');
+  if (hasPose(view)) types.push('3d');
   return types;
 }
 

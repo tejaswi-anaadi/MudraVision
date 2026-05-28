@@ -11,7 +11,8 @@ import { MUDRA_BY_ID, MUDRAS, CATEGORIES, MUDRAS_BY_CATEGORY } from './mudras.js
 import { getSvg } from './svg.js';
 import { mudraArt, renderVisual, getAvailableTypes, pickBaseVisual,
          setScannedFront, clearScannedFront, viewFromBuiltin, viewFromCapture,
-         wireImageFallbacks, preloadSourcePhotos } from './art.js';
+         wireImageFallbacks, preloadSourcePhotos, setAvailablePoses,
+         hasPose } from './art.js';
 import * as store from './store.js';
 import * as knn from './knn.js';
 import * as capture from './capture.js';
@@ -75,6 +76,13 @@ function viewForId(id, source) {
 // ============================================================
 (async function bootstrap() {
   await loadCaptures();
+  // Build the in-memory set of mudras that have a pose file (built by
+  // tools/extract_poses.py from real photos) so the renderer can show
+  // the 3D wireframe option when one is available.
+  fetch('poses/_index.json')
+    .then(r => r.ok ? r.json() : [])
+    .then(arr => setAvailablePoses(arr))
+    .catch(() => {});
   capture.init && capture.init();
   buildCatalog();
   populateUpgradeDropdown();
@@ -83,8 +91,7 @@ function viewForId(id, source) {
   applyHashView();
   window.addEventListener('hashchange', applyHashView);
   // After first paint, prefetch every source photo in the background so
-  // the Practice card paints instantly when a mudra locks (instead of
-  // hitting a fresh network fetch on the first detection).
+  // the Practice card paints instantly when a mudra locks.
   if ('requestIdleCallback' in window) {
     requestIdleCallback(preloadSourcePhotos, { timeout: 1500 });
   } else {
@@ -605,16 +612,51 @@ function renderPracticeCard(view) {
 }
 
 function wirePracticeToggle(root, view) {
+  // The 3D toggle is special — it instantiates a Three.js viewer instead
+  // of swapping an <img>/svg in.
+  let viewer3d = null;
+  const cleanup = () => {
+    if (viewer3d) { viewer3d.destroy(); viewer3d = null; }
+  };
   root.querySelectorAll('.toggle-btn').forEach(btn => {
-    btn.addEventListener('click', () => {
+    btn.addEventListener('click', async () => {
       const t = btn.dataset.type;
       const artEl = root.querySelector('.card-art');
-      artEl.innerHTML = renderVisual(view, t, { eager: true });
+      cleanup();
+      if (t === '3d') {
+        artEl.innerHTML = '<div class="card-3d"></div>';
+        const host = artEl.querySelector('.card-3d');
+        const [{ HandSkeleton3D, loadPose }] = await Promise.all([import('./viewer3d.js')]);
+        const wl = await getWorldLandmarksFor(view, loadPose);
+        viewer3d = new HandSkeleton3D(host, { autoRotate: true });
+        if (wl) viewer3d.setPose(wl.points, wl.handedness);
+      } else {
+        artEl.innerHTML = renderVisual(view, t, { eager: true });
+      }
       artEl.dataset.currentType = t;
       root.querySelectorAll('.toggle-btn').forEach(b => b.classList.toggle('active', b === btn));
       wireImageFallbacks(artEl);
     });
   });
+}
+
+// Resolve worldLandmarks for a mudra view, in priority order:
+//   1) the user's own capture (if any),
+//   2) the offline-extracted poses/{slug}.json.
+async function getWorldLandmarksFor(view, loadPose) {
+  if (view.kind === 'capture' && view.record?.angles?.[0]?.worldLandmarks?.length) {
+    return {
+      points: view.record.angles[0].worldLandmarks,
+      handedness: view.record.angles[0].handedness || 'Right',
+    };
+  }
+  const slug = view.builtinUpgrade || view.id;
+  const data = await loadPose(slug);
+  if (!data) return null;
+  return {
+    points: data.worldLandmarks,
+    handedness: data.handedness || 'Right',
+  };
 }
 
 // ---- Neon skeleton (unchanged) ----
