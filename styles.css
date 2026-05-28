@@ -660,6 +660,7 @@ kbd {
 .card.visible {
   opacity: 1;
   transform: translate(0, -50%);
+  pointer-events: auto;   /* restore so toggle buttons inside are clickable */
 }
 .card-art {
   display: flex;
