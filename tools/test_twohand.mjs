@@ -95,4 +95,42 @@ tally(run('dola', 'dola',
   { lm: place(rotate2D(pataka.lm, 180), 0.32, 0.5), handed: 'Right' },
   { lm: place(rotate2D(pataka.lm, 180), 0.68, 0.5, true), handed: 'Left' }));
 
+// ---- Batch 33-48: position-based mudras with usable component poses ----
+const ardhachandra = loadImageLandmarks('ardhachandra');
+const shikhara = loadImageLandmarks('shikhara');
+const kartarimukha = loadImageLandmarks('kartarimukha');
+const mushti = loadImageLandmarks('mushti');
+
+// SHIVALINGA — left Ardhacandra horizontal (base), right Shikhara stacked on top.
+if (ardhachandra && shikhara) {
+  tally(run('shivalinga', 'shivalinga',
+    { lm: place(ardhachandra.lm, 0.5, 0.66), handed: ardhachandra.handed },
+    { lm: place(shikhara.lm, 0.5, 0.40), handed: shikhara.handed }));
+}
+
+// KARTARISVASTIKA — two Kartarimukha hands crossed at the wrists.
+if (kartarimukha) {
+  tally(run('kartariswastika', 'kartariswastika',
+    { lm: place(rotate2D(kartarimukha.lm, 50), 0.49, 0.55), handed: 'Right' },
+    { lm: place(rotate2D(kartarimukha.lm, -50), 0.51, 0.55), handed: 'Left' }));
+}
+
+// SHANKHA — left Mushti + right Shikhara, wrists very close (thumb in fist).
+if (mushti && shikhara) {
+  tally(run('shankha', 'shankha',
+    { lm: place(mushti.lm, 0.48, 0.55), handed: mushti.handed },
+    { lm: place(shikhara.lm, 0.52, 0.5), handed: shikhara.handed }));
+}
+
+// GARUDA — two Ardhacandra hands, thumb tips hooked together at the centre.
+// Position so the two thumb tips (lm[4]) coincide near the centre.
+if (ardhachandra) {
+  const a = place(ardhachandra.lm, 0.5, 0.5);
+  // Put hand B so its thumb tip lands on hand A's thumb tip.
+  const bRaw = place(ardhachandra.lm, 0.5, 0.5, true);
+  const shiftX = a[4].x - bRaw[4].x, shiftY = a[4].y - bRaw[4].y;
+  const b = bRaw.map(p => ({ x: p.x + shiftX, y: p.y + shiftY, z: p.z }));
+  tally(run('garuda', 'garuda', { lm: a, handed: 'Right' }, { lm: b, handed: 'Left' }));
+}
+
 console.log(`\n${pass} pass · ${fail} fail`);
