@@ -205,6 +205,56 @@ body[data-view="practice"] .nav { background: rgba(6, 1, 15, 0.6); }
   object-fit: contain;
   filter: drop-shadow(0 0 32px rgba(0, 240, 255, 0.45));
 }
+
+/* Holographic wireframe hero */
+.hero-glyph-3d {
+  position: relative;
+  width: 420px;
+  height: 460px;
+  max-width: 100%;
+  filter: none;
+  border-radius: 24px;
+  overflow: hidden;
+  background:
+    radial-gradient(circle at 50% 48%, rgba(0,240,255,0.12), transparent 62%),
+    #04020c;
+  box-shadow:
+    0 0 50px rgba(0, 240, 255, 0.18),
+    inset 0 0 40px rgba(0, 240, 255, 0.08);
+}
+.hero-wire-stage {
+  position: absolute;
+  inset: 0;
+}
+.hero-wire-label {
+  position: absolute;
+  left: 0; right: 0; bottom: 18px;
+  text-align: center;
+  pointer-events: none;
+  opacity: 0;
+  transform: translateY(8px);
+  transition: opacity 500ms ease, transform 500ms ease;
+}
+.hero-wire-label.show {
+  opacity: 1;
+  transform: translateY(0);
+}
+.hero-wire-sa {
+  display: block;
+  font-family: var(--deva);
+  font-size: 26px;
+  color: var(--text);
+  text-shadow: 0 0 16px rgba(0, 240, 255, 0.4);
+  line-height: 1.1;
+}
+.hero-wire-iast {
+  display: block;
+  font-family: var(--serif);
+  font-style: italic;
+  font-size: 16px;
+  color: var(--neon-cyan);
+  letter-spacing: 0.02em;
+}
 .hero-decor::before {
   content: '';
   position: absolute;

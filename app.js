@@ -191,9 +191,70 @@ function cardHtml(view) {
 }
 
 // Cycle hero glyph.
-function animateHero() {
+// Curated set of visually-distinct single-hand mudras that have a pose
+// file (poses/{slug}.json extracted from a real photo). The hero cycles
+// through these as a single slowly-rotating holographic wireframe.
+const HERO_WIRE_CYCLE = [
+  'pataka', 'mayura', 'kartarimukha', 'ardhachandra', 'mukula',
+  'kapittha', 'trishula', 'shikhara', 'padmakosha', 'bhramara',
+  'tripataka', 'katakamukha',
+];
+
+async function animateHero() {
   const glyphHost = document.getElementById('hero-glyph');
   if (!glyphHost) return;
+
+  // Build the holographic wireframe viewer once. If WebGL or the pose
+  // files aren't available, fall back to the old image cycle.
+  let viewer = null, loadPose = null;
+  try {
+    const v3 = await import('./viewer3d.js');
+    loadPose = v3.loadPose;
+    glyphHost.innerHTML = '';
+    glyphHost.classList.add('hero-glyph-3d');
+    // Mount point for the canvas + a floating label.
+    const stage = document.createElement('div');
+    stage.className = 'hero-wire-stage';
+    glyphHost.appendChild(stage);
+    const label = document.createElement('div');
+    label.className = 'hero-wire-label';
+    glyphHost.appendChild(label);
+    viewer = new v3.HandSkeleton3D(stage, { autoRotate: true });
+    glyphHost._heroLabel = label;
+  } catch (e) {
+    console.warn('Hero wireframe unavailable, falling back to images:', e);
+    return animateHeroFallback(glyphHost);
+  }
+
+  // Only cycle through slugs whose pose file actually exists.
+  const available = [];
+  for (const slug of HERO_WIRE_CYCLE) {
+    const pose = await loadPose(slug);
+    if (pose && pose.worldLandmarks?.length === 21) available.push({ slug, pose });
+  }
+  if (available.length === 0) return animateHeroFallback(glyphHost);
+
+  let i = 0;
+  const show = () => {
+    const { slug, pose } = available[i % available.length];
+    const m = MUDRA_BY_ID[slug];
+    viewer.setPose(pose.worldLandmarks, pose.handedness);
+    if (glyphHost._heroLabel && m) {
+      glyphHost._heroLabel.innerHTML =
+        `<span class="hero-wire-sa">${m.names.sa}</span>
+         <span class="hero-wire-iast">${m.names.iast}</span>`;
+      glyphHost._heroLabel.classList.remove('show');
+      void glyphHost._heroLabel.offsetWidth;
+      glyphHost._heroLabel.classList.add('show');
+    }
+    i++;
+  };
+  show();
+  setInterval(show, 4200);
+}
+
+// Fallback: the original image/SVG cross-fade cycle.
+function animateHeroFallback(glyphHost) {
   let i = 0;
   const render = () => {
     const id = HERO_CYCLE[i % HERO_CYCLE.length];
