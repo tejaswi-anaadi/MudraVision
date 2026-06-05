@@ -65,9 +65,13 @@ export const MUDRAS = [
     constraints: [
       { type:'curl', finger:'index',  state:'extended', weight:1 },
       { type:'curl', finger:'middle', state:'extended', weight:1 },
-      { type:'curl', finger:'ring',   state:'curled',   weight:1 },
-      { type:'curl', finger:'pinky',  state:'curled',   weight:1 },
+      // Accept half-or-fully folded — people rarely fold these flat.
+      { type:'curl', finger:'ring',   state:['half','curled'], weight:1.1 },
+      { type:'curl', finger:'pinky',  state:['half','curled'], weight:1.1 },
       { type:'curl', finger:'thumb',  state:['curled','half'], weight:0.5 },
+      // Index and middle held TOGETHER — distinguishes from Kartarīmukha,
+      // whose two fingers are spread into a "V".
+      { type:'touch', fingers:['index','middle'], threshold:0.34, weight:0.9 },
     ],
   },
   {
@@ -188,7 +192,7 @@ export const MUDRAS = [
       // The thumb-index meeting is the defining feature. We do NOT pin the
       // index curl state — whether the index is half-bent or fully curled,
       // what matters is that its tip arrives at the thumb tip.
-      { type:'touch', fingers:['thumb','index'], threshold:0.45, weight:2.2 },
+      { type:'touch', fingers:['thumb','index'], threshold:0.45, weight:3.0 },
       { type:'curl', finger:'middle', state:'curled', weight:1 },
       { type:'curl', finger:'ring',   state:'curled', weight:1 },
       { type:'curl', finger:'pinky',  state:'curled', weight:1 },
@@ -281,11 +285,14 @@ export const MUDRAS = [
     usage: "Deer face, woman's cheek, summoning, calling, the wheel, three together.",
     hands: 1, recognize: true, reliable: false,
     constraints: [
-      { type:'curl', finger:'index',  state:['curled','half'], weight:1 },
-      { type:'curl', finger:'middle', state:['curled','half'], weight:1 },
-      { type:'curl', finger:'ring',   state:['curled','half'], weight:1 },
-      { type:'curl', finger:'pinky',  state:'extended', weight:1.2 },
-      { type:'curl', finger:'thumb',  state:'extended', weight:1.2 },
+      // Three middle fingers clearly FOLDED (not merely half) — this is what
+      // separates Mṛgaśīrṣa from the cupped Padmakośa / Sarpaśīrṣa, which
+      // were stealing its score when 'half' was accepted.
+      { type:'curl', finger:'index',  state:'curled', weight:1 },
+      { type:'curl', finger:'middle', state:'curled', weight:1 },
+      { type:'curl', finger:'ring',   state:'curled', weight:1 },
+      { type:'curl', finger:'pinky',  state:'extended', weight:1.3 },
+      { type:'curl', finger:'thumb',  state:'extended', weight:1.3 },
     ],
   },
   {
@@ -324,13 +331,26 @@ export const MUDRAS = [
     usage: 'Full-bloomed lotus, fruit-laden tree, mirror, the full moon, beauty, longing, village.',
     hands: 1, recognize: true, reliable: true,
     constraints: [
-      { type:'curl', finger:'index',  state:['extended','half'], weight:1 },
-      { type:'curl', finger:'middle', state:['extended','half'], weight:1 },
-      { type:'curl', finger:'ring',   state:['extended','half'], weight:1 },
-      { type:'curl', finger:'pinky',  state:['extended','half'], weight:1 },
+      { type:'curl', finger:'index',  state:'extended', weight:1 },
+      { type:'curl', finger:'middle', state:'extended', weight:1 },
+      { type:'curl', finger:'ring',   state:'extended', weight:1 },
+      { type:'curl', finger:'pinky',  state:'extended', weight:1 },
       { type:'curl', finger:'thumb',  state:'extended', weight:1 },
-      { type:'spread', min:0.24, weight:1.3 },
+      // The WIDE fan is the defining feature — heavily weighted and with a
+      // high minimum, so an ordinary open hand (Pataka, Ardhacandra) whose
+      // fingers are held together can't accumulate enough to win.
+      { type:'spread', min:0.30, weight:3.2 },
       { type:'thumbIndexAngle', min:45, weight:0.6 },
+      // EVERY finger must be genuinely straight. Without this, a hand with
+      // one bent finger (Arāla) or a cupped hand still scored high from the
+      // four straight fingers + wide spread. The most-curled finger has to
+      // be near-straight for this to pass.
+      { type:'custom', name:'allFingersStraight', weight:1.6,
+        test: (lm, st) => {
+          const maxCurl = Math.max(st.curlScore.index, st.curlScore.middle,
+                                   st.curlScore.ring, st.curlScore.pinky);
+          return Math.max(0, Math.min(1, (0.42 - maxCurl) / 0.28));
+        } },
     ],
   },
   {
@@ -361,12 +381,18 @@ export const MUDRAS = [
     usage: 'Bee, parrot, crane, union of lovers, plucking a flower with stem.',
     hands: 1, recognize: true, reliable: false,
     constraints: [
-      { type:'curl', finger:'index',  state:['half','curled'], weight:1 },
-      { type:'curl', finger:'middle', state:'extended', weight:1 },
-      { type:'curl', finger:'ring',   state:'extended', weight:1 },
-      { type:'curl', finger:'pinky',  state:'extended', weight:1 },
+      { type:'curl', finger:'index',  state:['half','curled'], weight:1.2 },
+      { type:'curl', finger:'middle', state:'extended', weight:1.2 },
+      { type:'curl', finger:'ring',   state:'extended', weight:1.2 },
+      { type:'curl', finger:'pinky',  state:'extended', weight:1.2 },
       { type:'curl', finger:'thumb',  state:'extended', weight:1 },
-      { type:'thumbIndexAngle', min:45, weight:0.5 },
+      { type:'thumbIndexAngle', min:42, weight:0.7 },
+      // Defining contrast: the index is clearly MORE curled than the middle
+      // (the bee's bent finger against three straight ones). Tanks the score
+      // for uniformly-cupped hands (Sarpaśīrṣa) and uniformly-open hands.
+      { type:'custom', name:'indexBentVsMiddle', weight:1.2,
+        test: (lm, st) => Math.max(0, Math.min(1,
+          (st.curlScore.index - st.curlScore.middle - 0.15) / 0.30)) },
     ],
   },
   {
