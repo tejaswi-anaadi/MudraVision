@@ -197,6 +197,45 @@ function evalTwoHand(t, h1, h2) {
       const avgD = sum / tips.length / avg;
       return Math.max(0, Math.min(1, 1 - avgD / 0.7));
     }
+    case 'fingertipsClose': {
+      // Middle fingertips near each other — whole palms together (Añjali).
+      const d = dist3(h1.lm[12], h2.lm[12]);
+      const avg = (handScale(h1.lm) + handScale(h2.lm)) / 2;
+      return Math.max(0, Math.min(1, 1 - d / avg / (t.threshold ?? 1.0)));
+    }
+    case 'fingertipsApart': {
+      // Middle fingertips clearly separated while wrists stay close — the
+      // "opening at the top" of Kapota.
+      const d = dist3(h1.lm[12], h2.lm[12]);
+      const avg = (handScale(h1.lm) + handScale(h2.lm)) / 2;
+      const min = t.min ?? 1.0;
+      return Math.max(0, Math.min(1, (d / avg - min) / 0.8));
+    }
+    case 'forearmsCrossed': {
+      // Angle between the two wrist→middle-MCP vectors. A true cross (X)
+      // peaks near 90°; parallel hands (Añjali) score ~0. This replaces the
+      // old sign-based test that false-fired on parallel upward hands.
+      const v1x = h1.lm[9].x - h1.lm[0].x, v1y = h1.lm[9].y - h1.lm[0].y;
+      const v2x = h2.lm[9].x - h2.lm[0].x, v2y = h2.lm[9].y - h2.lm[0].y;
+      const cos = (v1x*v2x + v1y*v2y) /
+                  (Math.hypot(v1x, v1y) * Math.hypot(v2x, v2y) + 1e-9);
+      const ang = Math.acos(Math.max(-1, Math.min(1, cos))) * 180 / Math.PI;
+      // 1 at 90°, 0 at 0° or 180°.
+      return Math.max(0, Math.min(1, 1 - Math.abs(ang - 90) / 60));
+    }
+    case 'forearmsParallel': {
+      // Wrist→middle vectors nearly aligned (both hands the same way up).
+      const v1x = h1.lm[9].x - h1.lm[0].x, v1y = h1.lm[9].y - h1.lm[0].y;
+      const v2x = h2.lm[9].x - h2.lm[0].x, v2y = h2.lm[9].y - h2.lm[0].y;
+      const cos = (v1x*v2x + v1y*v2y) /
+                  (Math.hypot(v1x, v1y) * Math.hypot(v2x, v2y) + 1e-9);
+      return Math.max(0, cos);
+    }
+    case 'bothPointDown': {
+      const d1 = h1.lm[12].y > h1.lm[9].y + 0.02;
+      const d2 = h2.lm[12].y > h2.lm[9].y + 0.02;
+      return (d1 ? 0.5 : 0) + (d2 ? 0.5 : 0);
+    }
     default:
       return 0;
   }
