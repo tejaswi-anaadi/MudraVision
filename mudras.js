@@ -511,11 +511,15 @@ export const MUDRAS = [
       { type:'curl', finger:'ring',   state:'extended', weight:1 },
       { type:'curl', finger:'pinky',  state:'extended', weight:1 },
       { type:'curl', finger:'thumb',  state:['half','extended','curled'], weight:0.5 },
-      { type:'direction', finger:'middle', dir:'up', weight:0.7 },
     ],
     twoHand: [
-      { type:'wristsClose', threshold:0.9, weight:1.2 },
-      { type:'bothPointUp', weight:1 },
+      // Whole palms pressed together: wrists close AND fingertips close AND
+      // forearms parallel (both pointing up). The fingertipsClose is what
+      // separates Añjali from Kapota (wrists close but fingers apart).
+      { type:'wristsClose', threshold:0.7, weight:1 },
+      { type:'fingertipsClose', threshold:1.0, weight:1.6 },
+      { type:'forearmsParallel', weight:0.8 },
+      { type:'bothPointUp', weight:0.6 },
     ],
   },
   {
@@ -526,8 +530,12 @@ export const MUDRAS = [
     hands: 2, recognize: true, reliable: false,
     components: ['pataka', 'pataka'],
     twoHand: [
-      { type:'wristsClose', threshold:0.7, weight:1 },
-      { type:'bothPointUp', weight:0.7 },
+      // Wrists meet at the base, fingers open apart at the top — but the
+      // forearms still diverge gently (parallel-ish), NOT crossed.
+      { type:'wristsClose', threshold:0.6, weight:1.1 },
+      { type:'fingertipsApart', min:1.0, weight:1.5 },
+      { type:'forearmsParallel', weight:1.0 },
+      { type:'bothPointUp', weight:0.4 },
     ],
   },
   {
@@ -549,7 +557,12 @@ export const MUDRAS = [
     hands: 2, recognize: true, reliable: false,
     components: ['pataka', 'pataka'],
     twoHand: [
-      { type:'handsCrossed', weight:1.6 },
+      // Forearms cross in an X — large angle between the two wrist→middle
+      // vectors. Fingertips splay APART (distinguishes from Añjali's palms
+      // together), wrists close at the crossing point.
+      { type:'forearmsCrossed', weight:2.0 },
+      { type:'fingertipsApart', min:0.8, weight:1.0 },
+      { type:'wristsClose', threshold:1.0, weight:0.5 },
     ],
   },
   {
@@ -560,7 +573,9 @@ export const MUDRAS = [
     hands: 2, recognize: true, reliable: false,
     components: ['pataka', 'pataka'],
     twoHand: [
-      { type:'handsSideBySide', weight:1.2 },
+      // Hands apart at the sides, fingers hanging DOWN.
+      { type:'handsSideBySide', weight:1 },
+      { type:'bothPointDown', weight:1.4 },
     ],
   },
   {
