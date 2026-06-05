@@ -598,7 +598,7 @@ export const MUDRAS = [
     hands: 2, recognize: true, reliable: false,
     components: ['arala', 'arala'],
     twoHand: [
-      { type:'handsCrossed', weight:1.5 },
+      { type:'forearmsCrossed', weight:1.5 },
     ],
   },
   {
@@ -609,7 +609,10 @@ export const MUDRAS = [
     hands: 2, recognize: true, reliable: true,
     components: ['ardhachandra', 'shikhara'],
     twoHand: [
-      { type:'handsStacked', weight:1.5 },
+      // The Śikhara hand rests ON the Ardhacandra palm — the hands are
+      // CLOSE (not stacked far apart). The ardhachandra+shikhara component
+      // pair is already nearly unique among the two-hand set.
+      { type:'wristsClose', threshold:1.4, weight:1.0 },
     ],
   },
   {
@@ -620,7 +623,7 @@ export const MUDRAS = [
     hands: 2, recognize: true, reliable: false,
     components: ['katakamukha', 'katakamukha'],
     twoHand: [
-      { type:'handsCrossed', weight:1.4 },
+      { type:'forearmsCrossed', weight:1.4 },
     ],
   },
   {
@@ -631,7 +634,7 @@ export const MUDRAS = [
     hands: 2, recognize: true, reliable: false,
     components: ['kartarimukha', 'kartarimukha'],
     twoHand: [
-      { type:'handsCrossed', weight:1.4 },
+      { type:'forearmsCrossed', weight:1.4 },
     ],
   },
   {
@@ -665,7 +668,7 @@ export const MUDRAS = [
     hands: 2, recognize: true, reliable: false,
     components: ['ardhachandra', 'ardhachandra'],
     twoHand: [
-      { type:'handsCrossed', weight:1.2 },
+      { type:'forearmsCrossed', weight:1.2 },
       { type:'palmsTowardCamera', weight:0.6 },
     ],
   },
@@ -757,7 +760,7 @@ export const MUDRAS = [
     hands: 2, recognize: true, reliable: false,
     components: ['sarpasirsha', 'sarpasirsha'],
     twoHand: [
-      { type:'handsCrossed', weight:1.4 },
+      { type:'forearmsCrossed', weight:1.4 },
     ],
   },
   {
