@@ -53,6 +53,27 @@ fit the photo are listed in `tools/fixture_quality.json` and excluded from the
 score. The fixtures are also the tuning set, so these numbers are an
 optimistic ceiling, not field accuracy.
 
+## The recognizer
+Live recognition combines two things:
+- **Learned models** (`models/single.json`, `models/two.json`): small neural
+  networks trained on ~5,000 real photographs of 15 dancers from the
+  Bharatanatyam Mudra Dataset — 29 single-hand and 21 two-hand classes. They
+  look at hand-shape features computed by `features.js`, the same file the
+  browser runs, so training and the live app can't drift apart. Accuracy is
+  measured on held-out blocks of frames (mostly unseen dancers) and recorded
+  in `models/eval.json`.
+- **Rules** (`classifier.js`, `mudras.js`) for mudras the dataset doesn't
+  cover (deity/avatar combinations, Saṃdaṃśa), discounted when the model is
+  confident the hand is something it knows.
+
+Rebuild the models (frames downloaded from the dataset into `FRAMES/<Folder>/<n>.jpg`):
+```bash
+python3 tools/extract_dataset.py FRAMES landmarks.jsonl
+node tools/build_features.mjs landmarks.jsonl features.json
+python3 tools/train_model.py features.json models/
+node tools/build_refs.mjs landmarks.jsonl      # reference 3D poses
+```
+
 ## Measuring real accuracy (record your own hands)
 The reference photos can't prove accuracy: most mudras have no photo, several
 photos are near-identical hands, and the photos are also what the rules were
@@ -83,7 +104,9 @@ pipeline (it says nothing about accuracy; `npm test` runs that smoke test).
 | `index.html` `styles.css` | Shell + theme |
 | `app.js` | View routing, Learn catalog, Practice loop, glue |
 | `landmarks.js` | Geometry helpers + normalisation for k-NN |
-| `classifier.js` | Rule-based mudra scoring (+ structural penalties) + k-NN merger |
+| `classifier.js` | Combines learned models + rule scores (+ k-NN for your own captures) |
+| `features.js` | Hand-shape features + model inference, shared by browser and training |
+| `models/` | Trained recognition models and their held-out accuracy (`eval.json`) |
 | `mudras.js` | The 69-entry mudra database |
 | `art.js` | Visual selector (scanned ▸ photo ▸ component-hand photos ▸ placeholder) |
 | `mediapipe.js` | Singleton loaders for HandLandmarker + ImageSegmenter (pinned CDN version, GPU→CPU fallback) |

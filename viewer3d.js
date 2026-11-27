@@ -1,63 +1,50 @@
 // viewer3d.js
-// Holographic-wireframe hand viewer + photo turntable.
+// 3D hand viewer + photo turntable.
 //
-//   HandSkeleton3D builds a hand-like body procedurally from 21 worldLandmarks:
-//     - tapered tube bones (thick at wrist, thin at fingertips) — built from
-//       CylinderGeometry + sphere caps, since three r128 has no CapsuleGeometry,
-//     - sphere joints at every landmark,
-//     - a triangulated palm shell (wrist + thumb-CMC + the four MCPs),
-//     - a wireframe overlay on every mesh,
-//     - a translucent inner shell for body depth,
-//     - a "faked" additive bloom (two scaled wireframe copies),
-//     - a glowing additive disc at the palm centre.
+//   HandSkeleton3D renders a solid, softly lit hand "maquette" from 21
+//   worldLandmarks: smooth skin-toned finger segments (tapered cylinders with
+//   rounded joints), a closed palm with real thickness, and a short forearm,
+//   on a light parchment backdrop (CSS). Drag to rotate; it turns slowly on
+//   its own until touched.
 //
-// The geometry ALWAYS comes from real landmark data — either a user's
-// capture or a pose extracted from a real source photograph by
-// tools/extract_poses.py. Never image-generated.
+// The geometry ALWAYS comes from real landmark data — a user's capture or a
+// pose measured from real photographs (poses/*.json). Never image-generated.
 
 import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.160.0/+esm';
 
-const PALETTE = {
-  bg:         0x05030d,
-  wireframe:  0x00f0ff,
-  glow:       0x00f0ff,
-  core:       0xffffff,
-  accent:     0xff00e0,
-  green:      0x39ff7d,
-};
+const SKIN = 0xd7a07c;        // warm medium skin tone
+const SKIN_HI = 0xc9a04a;     // highlight tint when a mudra is locked (warm gold)
 
-// MediaPipe Hands topology — bones we draw as tubes.
-const CONNECTIONS = [
-  [0,1],[0,5],[5,9],[9,13],[13,17],[0,17],   // palm web
-  [1,2],[2,3],[3,4],                          // thumb
-  [5,6],[6,7],[7,8],                          // index
-  [9,10],[10,11],[11,12],                     // middle
-  [13,14],[14,15],[15,16],                    // ring
-  [17,18],[18,19],[19,20],                    // pinky
+// MediaPipe Hands topology.
+const FINGER_BONES = [
+  [1, 2], [2, 3], [3, 4],          // thumb
+  [5, 6], [6, 7], [7, 8],          // index
+  [9, 10], [10, 11], [11, 12],     // middle
+  [13, 14], [14, 15], [15, 16],    // ring
+  [17, 18], [18, 19], [19, 20],    // pinky
 ];
-// Palm webbing: triangulate the palm "quad" using the wrist and the four MCPs.
-// Triangles are wound so the front-face matches the palm side; both sides are
-// rendered with DoubleSide anyway.
-const PALM_TRIS = [
-  [0, 5, 9],
-  [0, 9, 13],
-  [0, 13, 17],
-  [5, 9, 1],     // also stitch in the thumb base for completeness
-];
+// Palm outline (wrist, thumb base, index..pinky knuckles) — closed into a slab.
+const PALM_RING = [0, 1, 5, 9, 13, 17];
+// Rounded palm edges.
+const PALM_EDGES = [[0, 1], [1, 5], [5, 9], [9, 13], [13, 17], [17, 0]];
 
-// Per-landmark base radius for the bone "skeleton". Tapers from wrist (thick)
-// to fingertips (thin) so the wireframe reads like a hand. Tuned for the
-// hand body that emerges after centering: total span ~1 unit, so these
-// numbers are read as fractions of the hand's wrist-to-middle-MCP length.
-const JOINT_RADII = (function () {
-  const r = new Array(21).fill(0.040);
-  r[0] = 0.080;                                            // wrist — thickest
-  for (const i of [1, 5, 9, 13, 17]) r[i] = 0.060;         // MCPs
-  for (const i of [2, 6, 10, 14, 18]) r[i] = 0.045;        // PIPs / thumb MCP
-  for (const i of [3, 7, 11, 15, 19]) r[i] = 0.034;        // DIPs
-  for (const i of [4, 8, 12, 16, 20]) r[i] = 0.028;        // tips
+// Joint radii as a fraction of the hand's wrist→middle-knuckle length, so the
+// hand keeps natural proportions at any scale.
+const RADIUS = (() => {
+  const r = new Array(21).fill(0.095);
+  r[0] = 0.21;                                   // wrist
+  r[1] = 0.17; r[2] = 0.13; r[3] = 0.11; r[4] = 0.095;   // thumb
+  for (const i of [5, 9, 13]) r[i] = 0.115;     // knuckles
+  r[17] = 0.10;
+  for (const i of [6, 10, 14]) r[i] = 0.10;     // PIP
+  r[18] = 0.09;
+  for (const i of [7, 11, 15]) r[i] = 0.09;     // DIP
+  r[19] = 0.08;
+  for (const i of [8, 12, 16]) r[i] = 0.08;     // tips
+  r[20] = 0.072;
   return r;
 })();
+const PALM_HALF_THICKNESS = 0.095;
 
 // ============================================================
 // HandSkeleton3D
@@ -65,33 +52,40 @@ const JOINT_RADII = (function () {
 export class HandSkeleton3D {
   constructor(container, opts = {}) {
     this.container = container;
-    this.opts = { autoRotate: true, wireOnly: true, ...opts };
+    this.opts = { autoRotate: true, ...opts };
     this._sizeFromContainer();
 
     this.scene = new THREE.Scene();
-    this.scene.background = null;          // transparent — let CSS show through
-    this.camera = new THREE.PerspectiveCamera(40, this.w / this.h, 0.01, 100);
-    this.camera.position.set(0, 0, 2.2);
+    this.scene.background = null;              // CSS backdrop shows through
+    this.camera = new THREE.PerspectiveCamera(36, this.w / this.h, 0.01, 100);
+    this.camera.position.set(0, 0, 3.0);
     this.renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
     this.renderer.setPixelRatio(Math.min(2, window.devicePixelRatio || 1));
     this.renderer.setSize(this.w, this.h);
-    this.renderer.setClearColor(0x000000, 0);   // transparent
+    this.renderer.setClearColor(0x000000, 0);
+    this.renderer.outputColorSpace = THREE.SRGBColorSpace;
     this.renderer.domElement.style.cssText =
       'width:100%;height:100%;display:block;touch-action:none;cursor:grab;';
     container.appendChild(this.renderer.domElement);
 
-    this.root = new THREE.Group();           // user-rotated
-    this.handGroup = new THREE.Group();      // contains all meshes — re-built on setPose
+    // Soft studio lighting: warm sky/ground fill + a key light + a rim light.
+    this.scene.add(new THREE.HemisphereLight(0xfff4e6, 0x7a5a44, 1.25));
+    const key = new THREE.DirectionalLight(0xffffff, 1.6);
+    key.position.set(1.2, 1.8, 2.4);
+    this.scene.add(key);
+    const rim = new THREE.DirectionalLight(0xffe2c4, 0.7);
+    rim.position.set(-2, 0.5, -1.5);
+    this.scene.add(rim);
+
+    this.material = new THREE.MeshStandardMaterial({ color: SKIN, roughness: 0.58, metalness: 0.0 });
+
+    this.root = new THREE.Group();
+    this.handGroup = new THREE.Group();
     this.root.add(this.handGroup);
     this.scene.add(this.root);
 
-    // Palm core glow — a billboarded additive disc.
-    this.coreSprite = makeCoreSprite();
-    this.root.add(this.coreSprite);
-
     this._wireRotation();
     this._wireResize();
-
     this._lastT = performance.now();
     this._animate();
   }
@@ -101,91 +95,65 @@ export class HandSkeleton3D {
     this.h = Math.max(180, this.container.clientHeight || 360);
   }
 
-  // Replace the hand geometry with one built from `worldLandmarks` — an
-  // array of 21 { x, y, z } in real-world (metres) coords from MediaPipe.
-  // `handedness` is "Left" or "Right" — used to mirror left hands so they
-  // face the camera the same way.
+  // `worldLandmarks`: 21 { x, y, z } in metres (MediaPipe world coordinates).
+  // `handedness` "Left" mirrors x so either hand faces the viewer the same way.
   setPose(worldLandmarks, handedness = 'Right') {
     if (!worldLandmarks || worldLandmarks.length < 21) return;
-
-    // 1) Translate so the wrist is at the origin and flip Y/Z for screen-up.
-    //    For Left hands we mirror x so the wireframe reads the same from
-    //    the front regardless of which hand was scanned.
-    const w = worldLandmarks[0];
-    const mirror = handedness === 'Left' ? -1 : 1;
-    const SCALE = 4.5;
-    let pts = worldLandmarks.map(p => new THREE.Vector3(
-      mirror * (p.x - w.x) * SCALE,
-      -(p.y - w.y) * SCALE,
-      -(p.z - w.z) * SCALE,
-    ));
-
-    // 2) Centre on the hand's BBOX so the wrist-anchored geometry sits
-    //    nicely in the camera view (otherwise hand-up gestures push the
-    //    fingertips off the top of the canvas).
-    let minX=Infinity,minY=Infinity,minZ=Infinity,maxX=-Infinity,maxY=-Infinity,maxZ=-Infinity;
-    for (const p of pts) {
-      if (p.x<minX) minX=p.x; if (p.y<minY) minY=p.y; if (p.z<minZ) minZ=p.z;
-      if (p.x>maxX) maxX=p.x; if (p.y>maxY) maxY=p.y; if (p.z>maxZ) maxZ=p.z;
-    }
-    const cx=(minX+maxX)/2, cy=(minY+maxY)/2, cz=(minZ+maxZ)/2;
-    // 3) Scale-to-fit so different hand sizes fill the viewport similarly.
-    const span = Math.max(maxX-minX, maxY-minY, maxZ-minZ) || 1;
-    const fitScale = 1.4 / span;
-    pts = pts.map(p => new THREE.Vector3(
-      (p.x - cx) * fitScale,
-      (p.y - cy) * fitScale,
-      (p.z - cz) * fitScale,
-    ));
-
-    // Tear down any previous hand.
-    this._clearHand();
-
-    // ---- 1. Tube bones (CylinderGeometry between each pair + sphere caps)
-    for (const [a, b] of CONNECTIONS) {
-      this.handGroup.add(makeBoneTube(pts[a], pts[b], JOINT_RADII[a], JOINT_RADII[b], PALETTE.wireframe));
-    }
-
-    // ---- 2. Joint spheres — accent only the wrist and the 5 fingertips
-    //         so the wireframe stays readable.
-    const TIP_INDICES = new Set([4, 8, 12, 16, 20]);
-    for (let i = 0; i < 21; i++) {
-      const isAccent = (i === 0) || TIP_INDICES.has(i);
-      this.handGroup.add(makeJointSphere(pts[i], JOINT_RADII[i] * 1.05,
-                                         isAccent ? PALETTE.accent : PALETTE.wireframe));
-    }
-
-    // ---- 3. Palm webbing — a thin translucent shell across the palm.
-    this.handGroup.add(makePalmShell(pts, PALETTE.wireframe));
-
-    // ---- 4. Faked bloom: two scaled-up additive copies of the wireframe.
-    this.handGroup.add(makeBloomHalo(this.handGroup, 1.06, 0.18));
-    this.handGroup.add(makeBloomHalo(this.handGroup, 1.13, 0.10));
-
-    // ---- 5. Palm core: position the glow sprite at the palm centroid
-    //         (avg of wrist, index MCP, middle MCP, ring MCP, pinky MCP).
-    const palmCentre = pts[0].clone().add(pts[5]).add(pts[9]).add(pts[13]).add(pts[17]).divideScalar(5);
-    this.coreSprite.position.copy(palmCentre);
+    this.setHands([{ world: worldLandmarks, handedness }], { mirrorLeft: true });
   }
 
-  setHighlight(active) {
-    const color = active ? PALETTE.green : PALETTE.wireframe;
-    this.handGroup.traverse(m => {
-      if (m.userData && m.userData.tintable && m.material && m.material.color) {
-        m.material.color.set(color);
-      }
+  // One or two hands: [{ world, handedness, wrist? }]. `wrist` (metres) places
+  // each hand's wrist — world landmarks are hand-centred, so two-hand mudras
+  // need it to sit the hands correctly relative to each other.
+  setHands(hands, { mirrorLeft = false } = {}) {
+    hands = (hands || []).filter(h => h?.world?.length >= 21);
+    if (!hands.length) return;
+    let sets = hands.map(h => {
+      const w0 = h.world[0], off = h.wrist || { x: 0, y: 0, z: 0 };
+      const mirror = (mirrorLeft && h.handedness === 'Left') ? -1 : 1;
+      return h.world.map(p => new THREE.Vector3(
+        mirror * (p.x - w0.x) + off.x, -(p.y - w0.y + off.y), -(p.z - w0.z + off.z)));
+    });
+
+    // Scale so the wrist→middle-knuckle length is 1 unit.
+    const palmLen = sets.reduce((s, P) => s + P[9].distanceTo(P[0]), 0) / sets.length || 1;
+    sets = sets.map(P => P.map(p => p.multiplyScalar(1 / palmLen)));
+    // Each forearm continues away from its knuckles; include it when fitting.
+    const forearms = sets.map(P => {
+      const dir = P[0].clone().sub(P[9]).normalize();
+      return [P[0].clone(), P[0].clone().add(dir.multiplyScalar(0.7))];
+    });
+    const box = new THREE.Box3().setFromPoints([...sets.flat(), ...forearms.map(f => f[1])]);
+    box.expandByScalar(RADIUS[0]);
+    const centre = box.getCenter(new THREE.Vector3());
+    sets = sets.map(P => P.map(p => p.sub(centre)));
+    forearms.forEach(f => { f[0].sub(centre); f[1].sub(centre); });
+    const span = Math.max(...box.getSize(new THREE.Vector3()).toArray()) || 1;
+    this.handGroup.scale.setScalar(1.55 / span);
+
+    this._clearHand();
+    const mat = this.material;
+    const add = (m) => { if (m) this.handGroup.add(m); };
+    sets.forEach((pts, k) => {
+      // Fingers: tapered segments with a sphere at every joint.
+      for (const [a, b] of FINGER_BONES) add(segment(pts[a], pts[b], RADIUS[a], RADIUS[b], mat));
+      for (let i = 1; i < 21; i++) add(sphere(pts[i], RADIUS[i], mat));
+      // Palm: a closed slab across the knuckles, with rounded edges.
+      add(palmSlab(pts, mat));
+      for (const [a, b] of PALM_EDGES) add(segment(pts[a], pts[b], PALM_HALF_THICKNESS, PALM_HALF_THICKNESS, mat));
+      add(sphere(pts[0], RADIUS[0], mat));
+      // A short forearm.
+      add(segment(forearms[k][0], forearms[k][1], RADIUS[0], RADIUS[0] * 1.06, mat));
     });
   }
 
+  setHighlight(active) {
+    this.material.color.set(active ? SKIN_HI : SKIN);
+  }
+
   _clearHand() {
-    while (this.handGroup.children.length) {
-      const m = this.handGroup.children.pop();
-      m.geometry && m.geometry.dispose && m.geometry.dispose();
-      if (m.material) {
-        if (Array.isArray(m.material)) m.material.forEach(x => x.dispose && x.dispose());
-        else m.material.dispose && m.material.dispose();
-      }
-    }
+    this.handGroup.traverse(m => { if (m.geometry) m.geometry.dispose(); });
+    this.handGroup.clear();
   }
 
   _wireRotation() {
@@ -199,10 +167,8 @@ export class HandSkeleton3D {
     });
     el.addEventListener('pointermove', (e) => {
       if (!drag) return;
-      const dx = e.clientX - lastX;
-      const dy = e.clientY - lastY;
-      this.root.rotation.y += dx * 0.01;
-      this.root.rotation.x += dy * 0.01;
+      this.root.rotation.y += (e.clientX - lastX) * 0.01;
+      this.root.rotation.x += (e.clientY - lastY) * 0.01;
       lastX = e.clientX; lastY = e.clientY;
     });
     const end = (e) => {
@@ -229,11 +195,7 @@ export class HandSkeleton3D {
     const now = performance.now();
     const dt = (now - this._lastT) / 1000;
     this._lastT = now;
-    if (this.opts.autoRotate) this.root.rotation.y += dt * 0.45;
-    // Subtle pulse on the core sprite.
-    const pulse = 0.85 + 0.15 * Math.sin(now / 600);
-    this.coreSprite.scale.setScalar(0.55 * pulse);
-    (this.coreSprite.material).opacity = 0.55 + 0.20 * pulse;
+    if (this.opts.autoRotate) this.root.rotation.y += dt * 0.35;
     this.renderer.render(this.scene, this.camera);
   }
 
@@ -241,6 +203,7 @@ export class HandSkeleton3D {
     cancelAnimationFrame(this._raf);
     this._resizeObs && this._resizeObs.disconnect();
     this._clearHand();
+    this.material.dispose();
     this.renderer.dispose();
     try { this.container.removeChild(this.renderer.domElement); } catch {}
   }
@@ -249,157 +212,51 @@ export class HandSkeleton3D {
 // ============================================================
 // Geometry helpers
 // ============================================================
+const UP = new THREE.Vector3(0, 1, 0);
 
-// A bone between two points: an oriented cylinder that tapers from
-// radius rA at point a to radius rB at point b, capped with two
-// spheres so it reads as a finger segment. We add an EdgesGeometry
-// overlay so the wireframe lines pop.
-function makeBoneTube(a, b, rA, rB, color) {
-  const g = new THREE.Group();
+// Tapered, smooth cylinder from a (radius rA) to b (radius rB).
+function segment(a, b, rA, rB, mat) {
   const dir = new THREE.Vector3().subVectors(b, a);
   const len = dir.length();
-  if (len < 1e-5) return g;
-
-  // Tapered cylinder.
-  const cyl = new THREE.CylinderGeometry(rB, rA, len, 10, 1, true);
-  // Position so the cylinder runs along the segment.
-  const cylMesh = new THREE.Mesh(cyl, makeWireMat(color, 0.65));
-  cylMesh.userData.tintable = true;
-  // Edges overlay
-  const edges = new THREE.LineSegments(
-    new THREE.EdgesGeometry(cyl, 1),
-    makeLineMat(color, 0.95),
-  );
-  edges.userData.tintable = true;
-
-  // Orient (cylinder's local axis is Y).
-  const mid = new THREE.Vector3().addVectors(a, b).multiplyScalar(0.5);
-  const orient = new THREE.Quaternion().setFromUnitVectors(
-    new THREE.Vector3(0, 1, 0),
-    dir.clone().normalize(),
-  );
-  cylMesh.position.copy(mid);
-  cylMesh.quaternion.copy(orient);
-  edges.position.copy(mid);
-  edges.quaternion.copy(orient);
-
-  g.add(cylMesh);
-  g.add(edges);
-  return g;
+  if (len < 1e-5) return null;
+  const mesh = new THREE.Mesh(new THREE.CylinderGeometry(rB, rA, len, 24, 1, true), mat);
+  mesh.position.copy(a).add(b).multiplyScalar(0.5);
+  mesh.quaternion.setFromUnitVectors(UP, dir.normalize());
+  return mesh;
 }
 
-function makeJointSphere(pos, r, color) {
-  const g = new THREE.Group();
-  const geo = new THREE.SphereGeometry(r, 12, 10);
-  const mesh = new THREE.Mesh(geo, makeWireMat(color, 0.7));
-  mesh.userData.tintable = true;
-  const edges = new THREE.LineSegments(
-    new THREE.EdgesGeometry(geo, 1),
-    makeLineMat(color, 0.95),
-  );
-  edges.userData.tintable = true;
-  mesh.position.copy(pos);
-  edges.position.copy(pos);
-  g.add(mesh);
-  g.add(edges);
-  return g;
+function sphere(p, r, mat) {
+  const mesh = new THREE.Mesh(new THREE.SphereGeometry(r, 24, 18), mat);
+  mesh.position.copy(p);
+  return mesh;
 }
 
-function makePalmShell(pts, color) {
-  // Triangulate the palm. We build a single BufferGeometry from PALM_TRIS.
-  const positions = [];
-  for (const [a, b, c] of PALM_TRIS) {
-    positions.push(pts[a].x, pts[a].y, pts[a].z);
-    positions.push(pts[b].x, pts[b].y, pts[b].z);
-    positions.push(pts[c].x, pts[c].y, pts[c].z);
+// Closed palm slab: the palm outline offset to both sides of the palm plane.
+function palmSlab(pts, mat) {
+  const ring = PALM_RING.map(i => pts[i]);
+  const centre = ring.reduce((c, p) => c.add(p), new THREE.Vector3()).multiplyScalar(1 / ring.length);
+  const normal = new THREE.Vector3()
+    .crossVectors(pts[5].clone().sub(pts[0]), pts[17].clone().sub(pts[0])).normalize()
+    .multiplyScalar(PALM_HALF_THICKNESS);
+  const top = ring.map(p => p.clone().add(normal));
+  const bot = ring.map(p => p.clone().sub(normal));
+  const cT = centre.clone().add(normal), cB = centre.clone().sub(normal);
+  const pos = [];
+  const tri = (p, q, r) => pos.push(p.x, p.y, p.z, q.x, q.y, q.z, r.x, r.y, r.z);
+  const n = ring.length;
+  for (let i = 0; i < n; i++) {
+    const j = (i + 1) % n;
+    tri(cT, top[i], top[j]);
+    tri(cB, bot[j], bot[i]);
+    tri(top[i], bot[i], bot[j]);
+    tri(top[i], bot[j], top[j]);
   }
   const geo = new THREE.BufferGeometry();
-  geo.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+  geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
   geo.computeVertexNormals();
-  const mat = new THREE.MeshBasicMaterial({
-    color,
-    transparent: true,
-    opacity: 0.10,
-    side: THREE.DoubleSide,
-    depthWrite: false,
-  });
-  const shell = new THREE.Mesh(geo, mat);
-  shell.userData.tintable = true;
-  const edges = new THREE.LineSegments(
-    new THREE.EdgesGeometry(geo, 1),
-    makeLineMat(color, 0.9),
-  );
-  edges.userData.tintable = true;
-  const g = new THREE.Group();
-  g.add(shell);
-  g.add(edges);
-  return g;
-}
-
-// Faked bloom: clone the existing handGroup contents at a slightly larger
-// scale, with additive blending and low opacity, to suggest a glow halo
-// without needing the postprocessing module from three's examples (which
-// can be flaky on the +esm CDN bundle for older three releases).
-function makeBloomHalo(handGroup, scale, opacity) {
-  const halo = new THREE.Group();
-  handGroup.traverse(child => {
-    if (!child.isMesh && !child.isLineSegments) return;
-    const cloned = child.clone();
-    if (cloned.material) {
-      cloned.material = cloned.material.clone();
-      cloned.material.transparent = true;
-      cloned.material.opacity = opacity;
-      cloned.material.depthWrite = false;
-      cloned.material.blending = THREE.AdditiveBlending;
-    }
-    halo.add(cloned);
-  });
-  halo.scale.setScalar(scale);
-  return halo;
-}
-
-// A billboarded glowing disc at the palm core.
-function makeCoreSprite() {
-  const canvas = document.createElement('canvas');
-  canvas.width = canvas.height = 256;
-  const ctx = canvas.getContext('2d');
-  const grad = ctx.createRadialGradient(128, 128, 0, 128, 128, 128);
-  grad.addColorStop(0, 'rgba(255,255,255,1)');
-  grad.addColorStop(0.20, 'rgba(180,250,255,0.85)');
-  grad.addColorStop(0.55, 'rgba(0,240,255,0.35)');
-  grad.addColorStop(1, 'rgba(0,240,255,0)');
-  ctx.fillStyle = grad;
-  ctx.fillRect(0, 0, 256, 256);
-  const tex = new THREE.CanvasTexture(canvas);
-  const mat = new THREE.SpriteMaterial({
-    map: tex,
-    transparent: true,
-    opacity: 0.65,
-    blending: THREE.AdditiveBlending,
-    depthWrite: false,
-  });
-  const s = new THREE.Sprite(mat);
-  s.scale.setScalar(0.55);
-  return s;
-}
-
-function makeWireMat(color, opacity) {
-  return new THREE.MeshBasicMaterial({
-    color,
-    transparent: true,
-    opacity,
-    wireframe: true,
-    depthWrite: false,
-  });
-}
-function makeLineMat(color, opacity) {
-  return new THREE.LineBasicMaterial({
-    color,
-    transparent: true,
-    opacity,
-    depthWrite: false,
-    blending: THREE.AdditiveBlending,
-  });
+  const m = mat.clone();
+  m.side = THREE.DoubleSide;
+  return new THREE.Mesh(geo, m);
 }
 
 // ============================================================
@@ -488,6 +345,21 @@ export class PhotoTurntable {
 // Pose loader — fetches `poses/{slug}.json` once per slug, with a
 // small in-memory cache. Returns null if the pose file is missing.
 // ============================================================
+const _refCache = new Map();
+// Reference pose from the dataset (tools/build_refs.mjs): the most typical of
+// ~100 real frames of this mudra, with both hands for two-hand mudras.
+export async function loadRefPose(slug) {
+  if (!slug) return null;
+  if (_refCache.has(slug)) return _refCache.get(slug);
+  let data = null;
+  try {
+    const res = await fetch(`poses/ref/${slug}.json`);
+    if (res.ok) data = await res.json();
+  } catch {}
+  _refCache.set(slug, data);
+  return data;
+}
+
 const _poseCache = new Map();
 export async function loadPose(slug) {
   if (!slug) return null;

@@ -11,6 +11,7 @@ import {
 } from './landmarks.js';
 import { RECOGNIZABLE_ONE_HAND, RECOGNIZABLE_TWO_HAND, MUDRA_BY_ID } from './mudras.js';
 import * as knn from './knn.js';
+import { singleHandFeatures, twoHandFeatures, mirrorHand, orderHands, predict, handsGap } from './features.js';
 
 // ============================================================
 // Tuning
@@ -41,7 +42,58 @@ export const CLASSIFY = {
   // sit within a hair of each other. Counting the worst constraint widens the
   // gap between a hand that satisfies everything and one that breaks a rule.
   minBlend: 0.3,
+  // Learned models (models/*.json): a two-hand result from the model is
+  // accepted once its probability reaches this; otherwise we fall through to
+  // the per-hand pass.
+  modelTwoAccept: 0.5,
+  // Two-hand mudras keep the hands together. If the closest points of the two
+  // hands are further apart than this (palm lengths), the two-hand model's
+  // answer is down-weighted — it was never shown two unrelated hands.
+  // (Set from the dataset: see tools/train_model.py output.)
+  twoHandMaxGap: 1.6,
 };
+
+// ============================================================
+// Learned models — set by app.js at boot (setModels). When absent, the rule
+// engine alone is used, exactly as before.
+// ============================================================
+let MODELS = { single: null, two: null };
+export function setModels(m = {}) { MODELS = { single: m.single || null, two: m.two || null }; }
+export function getModels() { return MODELS; }
+
+const modelHand = (h) => ({ world: h.world || h.lm, pos: h.pos });
+const avg = (a, b) => a.map((v, i) => (v + b[i]) / 2);
+const toMap = (classes, p) => Object.fromEntries(classes.map((c, i) => [c, p[i]]));
+
+// Probabilities from the hand AND its mirror image, averaged — so the model
+// doesn't care which hand the dancer uses.
+function predictSingle(h) {
+  const m = MODELS.single, H = modelHand(h);
+  return toMap(m.classes, avg(predict(m, singleHandFeatures(H.world)),
+                              predict(m, singleHandFeatures(mirrorHand(H).world))));
+}
+function predictTwo(a, b) {
+  const m = MODELS.two, A = modelHand(a), B = modelHand(b);
+  const [p, q] = orderHands(A, B);
+  const [mp, mq] = orderHands(mirrorHand(A), mirrorHand(B));
+  return toMap(m.classes, avg(predict(m, twoHandFeatures(p, q)), predict(m, twoHandFeatures(mp, mq))));
+}
+
+// Merge model probabilities with rule scores. Mudras the model knows take its
+// probability; mudras it was never trained on (deity/avatar combinations,
+// Samdamsha) keep their rule score, discounted by how confident the model is
+// that the hand is one it does know.
+function mergeWithModel(ruleScores, probs, handsRef) {
+  const pmax = Math.max(...Object.values(probs));
+  const out = ruleScores.map(s => (probs[s.id] != null
+    ? { ...s, score: probs[s.id], ruleScore: s.score, source: 'model' }
+    : { ...s, score: s.score * (1 - pmax), ruleScore: s.score }));
+  const seen = new Set(out.map(s => s.id));
+  for (const [id, p] of Object.entries(probs)) {
+    if (!seen.has(id) && MUDRA_BY_ID[id]) out.push({ id, score: p, mudra: MUDRA_BY_ID[id], hands: handsRef, source: 'model' });
+  }
+  return out;
+}
 
 const asArray = (x) => Array.isArray(x) ? x : [x];
 
@@ -360,30 +412,42 @@ export function classify(hands) {
 
   // Two-hand pass first, but only lock when score is clearly above threshold.
   if (CLASSIFY.twoHandPriority && hands.length >= 2) {
-    const two = RECOGNIZABLE_TWO_HAND
-      .map(m => ({ id: m.id, score: scoreTwoHand(m, hands), mudra: m, hands, source: 'rule' }))
-      .sort((a, b) => b.score - a.score);
-    if (two[0] && two[0].score >= CLASSIFY.threshold) {
+    let two = RECOGNIZABLE_TWO_HAND
+      .map(m => ({ id: m.id, score: scoreTwoHand(m, hands), mudra: m, hands, source: 'rule' }));
+    let accept = CLASSIFY.threshold;
+    if (MODELS.two) {
+      const probs = predictTwo(hands[0], hands[1]);
+      // Hands far apart are not one two-hand mudra: damp the model's answer.
+      const gap = handsGap(modelHand(hands[0]), modelHand(hands[1]));
+      if (gap > CLASSIFY.twoHandMaxGap) {
+        const k = Math.max(0, 1 - (gap - CLASSIFY.twoHandMaxGap) / CLASSIFY.twoHandMaxGap);
+        for (const id of Object.keys(probs)) probs[id] *= k;
+      }
+      two = mergeWithModel(two, probs, hands);
+      accept = CLASSIFY.modelTwoAccept;
+    }
+    two.sort((a, b) => b.score - a.score);
+    if (two[0] && two[0].score >= accept) {
       const top = two[0];
       const second = two[1] || { score: 0 };
       const lock = (top.score - second.score >= CLASSIFY.margin) ? top : null;
-      return { lock, top, second, allScores: two, source: 'rule' };
+      return { lock, top, second, allScores: two, source: top.source };
     }
   }
 
   // Single-hand RULE pass — every built-in mudra scored against every hand.
   const allScores = [];
   for (const h of hands) {
-    for (const m of RECOGNIZABLE_ONE_HAND) {
-      allScores.push({
-        id: m.id,
-        score: scoreConstraints(m.constraints, h.lm, h.st, CLASSIFY.minBlend) *
-               structuralFactor(m.constraints, h.lm, h.st),
-        mudra: m,
-        hands: [h],
-        source: 'rule',
-      });
-    }
+    let scores = RECOGNIZABLE_ONE_HAND.map(m => ({
+      id: m.id,
+      score: scoreConstraints(m.constraints, h.lm, h.st, CLASSIFY.minBlend) *
+             structuralFactor(m.constraints, h.lm, h.st),
+      mudra: m,
+      hands: [h],
+      source: 'rule',
+    }));
+    if (MODELS.single) scores = mergeWithModel(scores, predictSingle(h), [h]);
+    allScores.push(...scores);
   }
 
   // k-NN pass — captured mudras compete head-to-head with rules.
@@ -440,16 +504,22 @@ export function classify(hands) {
 //           captures were recorded in that space)
 export function preprocessHands(landmarksList, handedness = [], aspect = 1, worldList = null) {
   const k = aspect > 0 && Number.isFinite(aspect) ? aspect : 1;
+  const used = new Set();
   return (landmarksList || []).map((lm, i) => {
     const cat = handedness?.[i]?.[0]?.categoryName;
-    const handId = cat ? `mp-${cat}` : `idx-${i}`;
+    // Smoothing identity. MediaPipe often labels BOTH hands "Right" when they
+    // overlap or interlock; keying both on "mp-Right" made the second hand be
+    // smoothed INTO the first one, scrambling every two-hand mudra. Keep ids
+    // unique within a frame.
+    let handId = cat ? `mp-${cat}` : `idx-${i}`;
+    if (used.has(handId)) handId = `${handId}#${i}`;
+    used.add(handId);
     const norm = applySmoothing(lm, handId);
     const pos = k === 1 ? norm : norm.map(p => ({ x: p.x * k, y: p.y, z: p.z * k }));
     const w = worldList?.[i];
-    const shape = (CLASSIFY.useWorldLandmarks && w && w.length === 21)
-      ? applySmoothing(w, `${handId}:world`)
-      : pos;
-    return { lm: shape, pos, norm, raw: lm, st: handState(shape), handId };
+    const world = (w && w.length === 21) ? applySmoothing(w, `${handId}:world`) : null;
+    const shape = (CLASSIFY.useWorldLandmarks && world) ? world : pos;
+    return { lm: shape, pos, norm, world, raw: lm, st: handState(shape), handId };
   });
 }
 

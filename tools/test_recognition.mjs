@@ -26,7 +26,7 @@
 import { readFileSync, writeFileSync, existsSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
-import { classify, preprocessHands, CLASSIFY } from '../classifier.js';
+import { classify, preprocessHands, CLASSIFY, setModels } from '../classifier.js';
 import { resetSmoothing, tickFrame } from '../landmarks.js';
 import { MUDRA_BY_ID } from '../mudras.js';
 import { landmarksFor } from './_space.mjs';
@@ -37,6 +37,11 @@ const flags = new Set(args.filter(a => a.startsWith('--')));
 const JSON_OUT = flags.has('--json');
 const UPDATE_BASELINE = flags.has('--update-baseline');
 const explicitIds = args.filter(a => !a.startsWith('--'));
+// Live app = rules + learned models (models/*.json). --rules-only for the old engine.
+if (!flags.has('--rules-only')) {
+  const load = (n) => { const p = join(ROOT, 'models', n); return existsSync(p) ? JSON.parse(readFileSync(p, 'utf8')) : null; };
+  setModels({ single: load('single.json'), two: load('two.json') });
+}
 const mb = args.find(a => a.startsWith('--minblend='));
 if (mb) CLASSIFY.minBlend = parseFloat(mb.split('=')[1]);
 // --space=live    (default) the live app's path: image landmarks + webcam aspect

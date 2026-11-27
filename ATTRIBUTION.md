@@ -101,6 +101,15 @@ and are not displayed.
 As derivatives of a CC BY-SA 4.0 work, all of the above are also released
 under **CC BY-SA 4.0**.
 
+### Recognition models and reference poses (`models/`, `poses/ref/`)
+
+`models/single.json` and `models/two.json` are neural-network classifiers
+trained on hand landmarks that MediaPipe extracted from ~5,000 frames of the
+same dataset (about 100 per mudra class, covering its 15 volunteers);
+`poses/ref/*.json` are the landmarks of each class's most typical frame. No
+images are stored in them. As data derived from a CC BY-SA 4.0 work, they are
+released under **CC BY-SA 4.0**. Reproduce with the tools listed in README.md.
+
 ## 2. Wikimedia Commons
 
 | File              | Wikimedia title         | Author / source        | Licence                          |

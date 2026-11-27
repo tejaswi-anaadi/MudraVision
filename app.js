@@ -6,7 +6,7 @@
 
 import { CONNECTIONS, TIP_INDICES, FINGER_NAMES, tickFrame, resetSmoothing,
          normalizeLandmarks } from './landmarks.js';
-import { classify, preprocessHands, CLASSIFY } from './classifier.js';
+import { classify, preprocessHands, CLASSIFY, setModels } from './classifier.js';
 import { MUDRA_BY_ID, MUDRAS, CATEGORIES, MUDRAS_BY_CATEGORY } from './mudras.js';
 import { mudraArt, renderVisual, getAvailableTypes, pickBaseVisual,
          setScannedFront, clearScannedFront, viewFromBuiltin, viewFromCapture,
@@ -74,15 +74,24 @@ function viewForId(id, source) {
 // ============================================================
 // Boot
 // ============================================================
+// Learned recognition models (trained on the Bharatanatyam Mudra Dataset by
+// tools/train_model.py). Small JSON; if they fail to load, the rule engine
+// still works on its own.
+function loadModels() {
+  const get = (n) => fetch(`models/${n}.json`).then(r => (r.ok ? r.json() : null)).catch(() => null);
+  return Promise.all([get('single'), get('two')])
+    .then(([single, two]) => setModels({ single, two }));
+}
+
 (async function bootstrap() {
+  loadModels();
   await loadCaptures();
   // Build the in-memory set of mudras that have a pose file (built by
   // tools/extract_poses.py from real photos) so the renderer can show
   // the 3D wireframe option when one is available.
-  fetch('poses/_index.json')
-    .then(r => r.ok ? r.json() : [])
-    .then(arr => setAvailablePoses(arr))
-    .catch(() => {});
+  Promise.all(['poses/_index.json', 'poses/ref/_index.json'].map(u =>
+    fetch(u).then(r => (r.ok ? r.json() : [])).catch(() => [])))
+    .then(([a, b]) => setAvailablePoses([...new Set([...a, ...b])]));
   capture.init && capture.init();
   buildCatalog();
   populateUpgradeDropdown();
@@ -704,10 +713,16 @@ function wirePracticeToggle(root, view) {
       if (t === '3d') {
         artEl.innerHTML = '<div class="card-3d"></div>';
         const host = artEl.querySelector('.card-3d');
-        const [{ HandSkeleton3D, loadPose }] = await Promise.all([import('./viewer3d.js')]);
-        const wl = await getWorldLandmarksFor(view, loadPose);
+        const { HandSkeleton3D, loadPose, loadRefPose } = await import('./viewer3d.js');
         viewer3d = new HandSkeleton3D(host, { autoRotate: true });
-        if (wl) viewer3d.setPose(wl.points, wl.handedness);
+        const slug = view.builtinUpgrade || view.id;
+        const ref = view.kind === 'capture' ? null : await loadRefPose(slug);
+        if (ref?.hands?.length) {
+          viewer3d.setHands(ref.hands, { mirrorLeft: ref.hands.length === 1 });
+        } else {
+          const wl = await getWorldLandmarksFor(view, loadPose);
+          if (wl) viewer3d.setPose(wl.points, wl.handedness);
+        }
       } else {
         artEl.innerHTML = renderVisual(view, t, { eager: true });
       }
