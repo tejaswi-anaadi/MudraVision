@@ -53,6 +53,30 @@ fit the photo are listed in `tools/fixture_quality.json` and excluded from the
 score. The fixtures are also the tuning set, so these numbers are an
 optimistic ceiling, not field accuracy.
 
+## Measuring real accuracy (record your own hands)
+The reference photos can't prove accuracy: most mudras have no photo, several
+photos are near-identical hands, and the photos are also what the rules were
+tuned on. Record real hands instead:
+
+1. Open **Practice** and press **R** (or the **● Record** button).
+2. Pick a mudrā, hold it, press **Space**. After a 3‑second countdown it
+   records one *take* (12 frames). Do **5+ takes per mudrā**, varying angle,
+   distance, hand and lighting between takes. Two‑hand mudrās need both hands
+   in view; takes with the wrong hand count are discarded.
+3. **Export JSON**. Nothing leaves the browser until you do, and only
+   landmarks are stored — no camera images.
+4. Evaluate:
+```bash
+node tools/eval_dataset.mjs mudra-dataset-*.json          # DEV and TEST report
+node tools/eval_dataset.mjs mudra-dataset-*.json --gate   # exit 1 if TEST < 95%
+```
+Each mudrā's most recent takes (30%) are held out as **TEST**, split *by take*
+so near-identical frames can't leak. Tune rules on DEV only, then report TEST.
+The headline is macro **lock-correct**: the share of takes where the app's own
+6‑of‑8 consensus locks the *right* mudrā, averaged over mudrās.
+`node tools/synth_dataset.mjs out.json` makes a synthetic set to smoke-test the
+pipeline (it says nothing about accuracy; `npm test` runs that smoke test).
+
 ## Files
 | File | Role |
 |---|---|
@@ -66,6 +90,7 @@ optimistic ceiling, not field accuracy.
 | `mediapipe.js` | Singleton loaders for HandLandmarker + ImageSegmenter |
 | `capture.js` | Guided 2-angle capture flow + hand segmentation |
 | `store.js` | IndexedDB CRUD + export/import |
+| `recorder.js` | Labelled-landmark dataset recorder (Practice → R) |
 | `knn.js` | In-memory k-NN classifier |
 | `viewer3d.js` | Three.js rotatable skeleton + photo turntable |
 | `images/` | Reference photographs (see `ATTRIBUTION.md`) |

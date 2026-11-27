@@ -17,6 +17,7 @@ import * as store from './store.js';
 import * as knn from './knn.js';
 import * as capture from './capture.js';
 import { loadLandmarker, getLoadedLandmarker } from './mediapipe.js';
+import { initRecorder } from './recorder.js';
 
 // ============================================================
 // Tuning
@@ -450,6 +451,7 @@ let currentLockId = null;
 let currentLockSource = null;
 let cardTimer = null;
 let debugMode = false;
+let recorder = null;     // dataset recorder (R key / ● Record button)
 let modelLoaded = false;
 let domWired = false;
 let framesSinceHand = 0;
@@ -485,6 +487,7 @@ function exitPractice() {
   currentLockId = null;
   currentLockSource = null;
   hideCard();
+  if (recorder) recorder.cancel();
 }
 
 async function initPractice() {
@@ -497,6 +500,12 @@ async function initPractice() {
   hintEl   = document.getElementById('hint');
   debugEl  = document.getElementById('debug');
   loaderEl = document.getElementById('loader');
+
+  recorder = initRecorder({
+    stage: document.querySelector('#practice-view .stage'),
+    mudras: MUDRAS, categories: CATEGORIES,
+    notify: flashConfirmation,
+  });
 
   window.addEventListener('keydown', (e) => {
     if ((e.key === 'd' || e.key === 'D') && document.body.dataset.view === 'practice') {
@@ -559,6 +568,9 @@ function processResults(results) {
   practiceCtx.clearRect(0, 0, practiceCanvas.width, practiceCanvas.height);
   tickFrame();
   const lmList = results.landmarks || [];
+  const aspect = practiceVideo.videoWidth && practiceVideo.videoHeight
+    ? practiceVideo.videoWidth / practiceVideo.videoHeight : 1;
+  if (recorder) recorder.feed(results, aspect, practiceVideo);   // every frame, hands or not
   if (lmList.length === 0) {
     framesSinceHand++;
     if (framesSinceHand === LOST_HAND_RESET_FRAMES) resetSmoothing();
@@ -568,8 +580,6 @@ function processResults(results) {
     return;
   }
   framesSinceHand = 0;
-  const aspect = practiceVideo.videoWidth && practiceVideo.videoHeight
-    ? practiceVideo.videoWidth / practiceVideo.videoHeight : 1;
   const hands = preprocessHands(lmList, results.handednesses || results.handedness, aspect,
                                results.worldLandmarks);
   const result = classify(hands);
