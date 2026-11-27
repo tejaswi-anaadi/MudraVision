@@ -8,7 +8,6 @@ import { CONNECTIONS, TIP_INDICES, FINGER_NAMES, tickFrame, resetSmoothing,
          normalizeLandmarks } from './landmarks.js';
 import { classify, preprocessHands, CLASSIFY } from './classifier.js';
 import { MUDRA_BY_ID, MUDRAS, CATEGORIES, MUDRAS_BY_CATEGORY } from './mudras.js';
-import { getSvg } from './svg.js';
 import { mudraArt, renderVisual, getAvailableTypes, pickBaseVisual,
          setScannedFront, clearScannedFront, viewFromBuiltin, viewFromCapture,
          wireImageFallbacks, preloadSourcePhotos, setAvailablePoses,
@@ -666,18 +665,20 @@ function hideCard() {
 }
 
 // Practice card: shows the priority visual + a segmented toggle of the
-// available types (svg / source / scanned). Photos are rendered EAGER so
+// available types (photo / hands / scan / 3D). Photos are rendered EAGER so
 // they paint the moment the card appears, not after a fresh fetch.
+const TYPE_LABEL = { source: 'photo', parts: 'hands', scanned: 'scan', '3d': '3D', placeholder: '·' };
+
 function renderPracticeCard(view) {
   const base = pickBaseVisual(view);
   const types = getAvailableTypes(view);
   return `
     <div class="card-art" data-current-type="${base.type}">${renderVisual(view, base.type, { eager: true })}</div>
-    <div class="card-toggle">
+    ${types.length > 1 ? `<div class="card-toggle">
       ${types.map(t => `
-        <button class="toggle-btn${t === base.type ? ' active' : ''}" data-type="${t}">${t}</button>
+        <button class="toggle-btn${t === base.type ? ' active' : ''}" data-type="${t}">${TYPE_LABEL[t] || t}</button>
       `).join('')}
-    </div>
+    </div>` : ''}
     <div class="card-text">
       <div class="card-sa">${view.names.sa || '·'}</div>
       <div class="card-iast">${view.displayName}${view.is3D ? ' <span class="threed-badge">3D</span>' : ''}</div>

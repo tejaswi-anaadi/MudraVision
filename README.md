@@ -85,15 +85,15 @@ pipeline (it says nothing about accuracy; `npm test` runs that smoke test).
 | `landmarks.js` | Geometry helpers + normalisation for k-NN |
 | `classifier.js` | Rule-based mudra scoring (+ structural penalties) + k-NN merger |
 | `mudras.js` | The 69-entry mudra database |
-| `svg.js` | Neon line-art per mudra |
-| `art.js` | Three-type visual selector (svg ▸ source ▸ scanned) |
+| `art.js` | Visual selector (scanned ▸ photo ▸ component-hand photos ▸ placeholder) |
 | `mediapipe.js` | Singleton loaders for HandLandmarker + ImageSegmenter |
 | `capture.js` | Guided 2-angle capture flow + hand segmentation |
 | `store.js` | IndexedDB CRUD + export/import |
 | `recorder.js` | Labelled-landmark dataset recorder (Practice → R) |
 | `knn.js` | In-memory k-NN classifier |
 | `viewer3d.js` | Three.js rotatable skeleton + photo turntable |
-| `images/` | Reference photographs (see `ATTRIBUTION.md`) |
+| `images/` | Real hand photographs on parchment (see `ATTRIBUTION.md`); built by `tools/build_plates.py` from dataset frames |
+| `poses/src/` | Original dataset photographs used to extract 3D poses (not displayed) |
 
 ## Credits
 Mudra reference photographs from the **Bharatanatyam Mudra Dataset** by

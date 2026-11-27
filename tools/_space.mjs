@@ -8,7 +8,7 @@
 //
 // Photos are not webcam frames, so for `image` the x/z coordinates are first
 // stretched to emulate a 16:9 frame; preprocessHands then undoes it.
-import { readFileSync } from 'node:fs';
+import { readFileSync, existsSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 
@@ -20,13 +20,20 @@ export function pngSize(file) {
   return { w: b.readUInt32BE(16), h: b.readUInt32BE(20) };
 }
 
+// Pose-source photos: poses/src/<id>.png (the originals the poses were
+// extracted from), or images/<id>.png for the two Wikimedia photos.
+export function sourcePhoto(id) {
+  const a = join(ROOT, 'poses', 'src', `${id}.png`);
+  return existsSync(a) ? a : join(ROOT, 'images', `${id}.png`);
+}
+
 export function landmarksFor(pose, id, space = 'live', aspect = WEBCAM_ASPECT) {
   if (space === 'world') return { lm: pose.worldLandmarks, aspect: 1 };
   if (space === 'live') {
     const r = landmarksFor(pose, id, 'image', aspect);
     return { ...r, world: pose.worldLandmarks };
   }
-  const { w, h } = pngSize(join(ROOT, 'images', `${id}.png`));
+  const { w, h } = pngSize(sourcePhoto(id));
   const lm = pose.landmarks;
   if (space === 'pixel') return { lm: lm.map(p => ({ x: p.x * w, y: p.y * h, z: (p.z || 0) * w })), aspect: 1 };
   const k = (w / h) / aspect;

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 Extract MediaPipe hand worldLandmarks for every reference photo in
-`images/` and write the 21 (x, y, z) points to `poses/{slug}.json`.
+`poses/src/` and `images/` and write the 21 (x, y, z) points to `poses/{slug}.json`.
 
 These pose files give the runtime 3D viewer a real, pose-accurate
 skeleton for built-in mudras that the user hasn't captured. The
@@ -26,7 +26,8 @@ from mediapipe.tasks.python import vision as mp_vision
 
 
 ROOT = Path(__file__).resolve().parent.parent
-IMAGES_DIR = ROOT / "images"
+# Pose-source photos: poses/src (dataset photos) and images (Wikimedia photos).
+IMAGE_DIRS = [ROOT / "poses" / "src", ROOT / "images"]
 POSES_DIR = ROOT / "poses"
 POSES_DIR.mkdir(exist_ok=True)
 MODEL_URL = (
@@ -83,7 +84,7 @@ def main():
 
     wrote, skipped = 0, []
     with mp_vision.HandLandmarker.create_from_options(options) as landmarker:
-        for image_path in sorted(IMAGES_DIR.glob("*.png")):
+        for image_path in sorted(p for d in IMAGE_DIRS for p in d.glob("*.png")):
             slug = image_path.stem
             bgr = cv2.imread(str(image_path))
             if bgr is None:
@@ -115,7 +116,7 @@ def main():
             )
             payload = {
                 "slug": slug,
-                "source_image": f"images/{image_path.name}",
+                "source_image": str(image_path.relative_to(ROOT)),
                 "handedness": hand_label,
                 "worldLandmarks": world,
                 "landmarks": image_lm,
