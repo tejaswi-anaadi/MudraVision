@@ -25,7 +25,6 @@
     </a>
     <div class="nav-tabs">
       <button class="nav-tab" data-go="learn">Learn</button>
-      <button class="nav-tab" data-go="capture">Capture</button>
       <button class="nav-tab" data-go="practice">Practice ›</button>
     </div>
   </nav>
@@ -45,7 +44,6 @@
         </p>
         <div class="hero-cta">
           <button class="btn btn-primary" data-go="practice">Open the camera ›</button>
-          <button class="btn btn-ghost" data-go="capture">Scan your own mudra</button>
           <a href="#about" class="btn btn-ghost btn-text-only">Learn first</a>
         </div>
       </div>
@@ -92,10 +90,8 @@
           <em>Daśāvatāra</em> hastas are built.
         </p>
         <p class="essay-aside">
-          Browse below to learn. Open the camera to practise. Or use
-          <strong>Capture</strong> to scan one of your own gestures from five
-          angles — it'll be recognised on the live camera immediately, no
-          reload required.
+          Browse below to learn. Open the camera to practise — the live view
+          names each mudrā as you form it.
         </p>
       </article>
     </section>
@@ -107,111 +103,6 @@
       <p>Open the camera and form a mudrā with your hand in clear view.</p>
       <button class="btn btn-primary btn-lg" data-go="practice">Open the camera ›</button>
       <p class="closing-foot">Press <kbd>D</kbd> in Practice to see live per-finger debug info.</p>
-    </section>
-  </main>
-
-  <!-- ===================== CAPTURE VIEW ===================== -->
-  <main id="capture-view" class="view">
-
-    <!-- 1. Name + (optional) upgrade picker -->
-    <section id="capture-form-panel" class="capture-panel">
-      <h1 class="capture-title">Capture a mudrā</h1>
-      <p class="capture-sub">
-        Two quick angles — front and a sideways tilt. We segment your hand
-        out of the background and add it to the live recogniser immediately;
-        nothing is uploaded.
-      </p>
-      <form id="capture-form" class="capture-form">
-        <label class="form-label">
-          <span>Name</span>
-          <input id="capture-name" type="text" placeholder="e.g. Patāka, or your own name" required maxlength="40" />
-        </label>
-        <label class="form-label">
-          <span>Upgrades an existing mudrā? (optional — tags it "· 3D")</span>
-          <select id="capture-upgrade">
-            <option value="">— None, brand-new mudrā —</option>
-          </select>
-        </label>
-        <div class="capture-form-actions">
-          <button type="submit" class="btn btn-primary">Start capture ›</button>
-          <button type="button" class="btn btn-ghost" data-go="learn">Cancel</button>
-        </div>
-      </form>
-    </section>
-
-    <!-- 2. Live capture stage with target ring + steps -->
-    <section id="capture-stage" class="capture-panel hidden">
-      <div class="capture-camera-wrap">
-        <video id="capture-webcam" autoplay playsinline muted></video>
-        <canvas id="capture-overlay"></canvas>
-        <div id="capture-ring" class="capture-ring" aria-hidden="true"></div>
-        <div id="capture-flash" class="capture-flash" aria-hidden="true"></div>
-        <!-- Big green tick overlay — animates when the angle is captured -->
-        <div id="capture-big-tick" class="big-tick" aria-hidden="true">
-          <svg viewBox="0 0 64 64" class="big-tick-svg">
-            <circle cx="32" cy="32" r="28" />
-            <path d="M18 33 L28 43 L46 22" />
-          </svg>
-          <div class="tick-label">Captured</div>
-        </div>
-      </div>
-      <div class="capture-instructions">
-        <div class="capture-arrow-row">
-          <span id="capture-step-arrow" class="capture-step-arrow">•</span>
-          <div>
-            <div id="capture-step-label" class="capture-step-label">Angle 1 of 5</div>
-            <div id="capture-step-instr" class="capture-step-instr">Front — face the camera directly.</div>
-          </div>
-        </div>
-        <div id="capture-step-progress" class="capture-step-progress"></div>
-        <!-- Three live gates: each turns green when satisfied -->
-        <div class="capture-checks">
-          <span id="chk-pos"    class="cap-check"><span class="cap-check-mark">✓</span> Position</span>
-          <span id="chk-orient" class="cap-check"><span class="cap-check-mark">✓</span> Orientation</span>
-          <span id="chk-steady" class="cap-check"><span class="cap-check-mark">✓</span> Steady</span>
-        </div>
-        <div class="capture-hold">
-          <span>Hold steady</span>
-          <div class="hold-bar"><div id="capture-hold-fill"></div></div>
-        </div>
-        <button type="button" class="btn btn-ghost" data-go="learn">Cancel capture</button>
-      </div>
-    </section>
-
-    <!-- 3. Review screen with 3D viewer + photo turntable -->
-    <section id="capture-review" class="capture-panel hidden">
-      <h2 class="capture-title">Review your capture</h2>
-      <div class="review-grid">
-        <div class="review-cell">
-          <h3>3D skeleton</h3>
-          <p class="review-hint">Drag to rotate.</p>
-          <div id="review-skeleton" class="review-skeleton"></div>
-        </div>
-        <div class="review-cell">
-          <h3>Photo turntable</h3>
-          <p class="review-hint">Drag horizontally to scrub through angles.</p>
-          <div id="review-turntable" class="review-turntable"></div>
-        </div>
-      </div>
-      <div class="review-meta">
-        <h3>
-          <span id="review-display-name">—</span>
-          <span id="review-3d-tag" class="threed-badge">3D</span>
-        </h3>
-        <details class="review-extra">
-          <summary>Add Sanskrit / IAST / English / usage (optional)</summary>
-          <div class="review-extra-grid">
-            <label><span>Devanāgarī</span><input id="review-sa" type="text" maxlength="40"></label>
-            <label><span>IAST</span><input id="review-iast" type="text" maxlength="40"></label>
-            <label><span>English</span><input id="review-en" type="text" maxlength="40"></label>
-            <label class="full"><span>Viniyoga (usage)</span><input id="review-usage" type="text" maxlength="200"></label>
-          </div>
-        </details>
-      </div>
-      <div class="review-actions">
-        <button id="capture-save-btn" class="btn btn-primary" type="button">Save mudrā</button>
-        <button id="capture-retake-btn" class="btn btn-ghost" type="button">Retake</button>
-      </div>
     </section>
   </main>
 

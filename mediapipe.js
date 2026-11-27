@@ -1,6 +1,5 @@
 // mediapipe.js
-// Singleton HandLandmarker loader shared between the Practice loop and the
-// Capture flow so we only download/initialise the model once.
+// Singleton HandLandmarker loader, so the model is downloaded and initialised once.
 
 // Pinned: "@latest" silently moved to a new major version (1.x). Bump on purpose.
 const VISION_VERSION = '1.2.3';
@@ -56,35 +55,4 @@ export function disposeLandmarker() {
     _landmarker = null;
   }
   _loadingPromise = null;
-}
-
-// ============================================================
-// Selfie segmenter — separates the person from the background.
-// Used by capture.js to cut the hand cleanly from the camera frame.
-// ============================================================
-let _segmenter = null;
-let _segLoadingPromise = null;
-
-export function getLoadedSegmenter() { return _segmenter; }
-
-export function loadSegmenter() {
-  if (_segmenter) return Promise.resolve(_segmenter);
-  if (_segLoadingPromise) return _segLoadingPromise;
-  _segLoadingPromise = (async () => {
-    const { ImageSegmenter, FilesetResolver } = await import(VISION_BUNDLE);
-    const vision = await FilesetResolver.forVisionTasks(VISION_WASM);
-    _segmenter = await createWithFallback((delegate) => ImageSegmenter.createFromOptions(vision, {
-      baseOptions: {
-        modelAssetPath:
-          "https://storage.googleapis.com/mediapipe-models/image_segmenter/selfie_segmenter/float16/1/selfie_segmenter.tflite",
-        delegate,
-      },
-      outputCategoryMask: true,
-      outputConfidenceMasks: false,
-      runningMode: "IMAGE",
-    }));
-    return _segmenter;
-  })();
-  _segLoadingPromise.catch(() => { _segLoadingPromise = null; });
-  return _segLoadingPromise;
 }

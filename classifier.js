@@ -7,10 +7,9 @@
 import {
   FINGERS, tipsTouching, normDist, handScale, handState, TOUCH, dist3,
   curlMatchScore, touchScore, directionMatchScore, clusterScore,
-  applySmoothing, fingerCurlScore, palmCentroid, normalizeLandmarks,
+  applySmoothing, fingerCurlScore, palmCentroid,
 } from './landmarks.js';
 import { RECOGNIZABLE_ONE_HAND, RECOGNIZABLE_TWO_HAND, MUDRA_BY_ID } from './mudras.js';
-import * as knn from './knn.js';
 import { singleHandFeatures, twoHandFeatures, mirrorHand, orderHands, predict, handsGap } from './features.js';
 
 // ============================================================
@@ -450,30 +449,6 @@ export function classify(hands) {
     allScores.push(...scores);
   }
 
-  // k-NN pass — captured mudras compete head-to-head with rules.
-  for (const h of hands) {
-    // kNN vectors were captured from image-normalised landmarks (capture.js),
-    // so keep matching in that space, not the aspect-corrected one.
-    const vec = normalizeLandmarks(h.norm || h.lm);
-    const r = knn.classify(vec);
-    if (r && r.score >= 0.30) {
-      // Small bias for "· 3D" upgrades over their generic built-in: when the
-      // user has scanned their own hand, prefer it.
-      const bias = r.builtinUpgrade ? 0.05 : 0;
-      allScores.push({
-        id: r.id,
-        displayName: r.displayName,
-        builtinUpgrade: r.builtinUpgrade,
-        is3D: r.is3D,
-        score: Math.min(1, r.score + bias),
-        hands: [h],
-        source: 'knn',
-        nearestDist: r.nearestDist,
-        angleLabel: r.angleLabel,
-      });
-    }
-  }
-
   allScores.sort((a, b) => b.score - a.score);
   const top = allScores[0];
   if (!top) return { lock: null, top: null, second: null, allScores: [], source: null };
@@ -500,8 +475,7 @@ export function classify(hands) {
 //   lm    – the SHAPE landmarks the rule classifier scores (world when
 //           available and enabled, otherwise isotropic image)
 //   pos   – isotropic image landmarks; used for geometry BETWEEN hands
-//   norm  – image-normalised landmarks; used for drawing and kNN (stored
-//           captures were recorded in that space)
+//   norm  – image-normalised landmarks; used for drawing the overlay
 export function preprocessHands(landmarksList, handedness = [], aspect = 1, worldList = null) {
   const k = aspect > 0 && Number.isFinite(aspect) ? aspect : 1;
   const used = new Set();

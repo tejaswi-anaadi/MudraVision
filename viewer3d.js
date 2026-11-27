@@ -7,8 +7,8 @@
 //   on a light parchment backdrop (CSS). Drag to rotate; it turns slowly on
 //   its own until touched.
 //
-// The geometry ALWAYS comes from real landmark data — a user's capture or a
-// pose measured from real photographs (poses/*.json). Never image-generated.
+// The geometry ALWAYS comes from real landmark data — a pose measured from
+// real photographs (poses/*.json). Never image-generated.
 
 import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.160.0/+esm';
 
@@ -257,88 +257,6 @@ function palmSlab(pts, mat) {
   const m = mat.clone();
   m.side = THREE.DoubleSide;
   return new THREE.Mesh(geo, m);
-}
-
-// ============================================================
-// PhotoTurntable — unchanged 2.5D widget for the 5 capture angles
-// ============================================================
-export class PhotoTurntable {
-  constructor(container, photos, labels = []) {
-    this.container = container;
-    this.photos = photos;
-    this.labels = labels;
-    this.urls = photos.map(p => URL.createObjectURL(p));
-    this.idx = 0;
-    this._build();
-    this._wire();
-  }
-  _build() {
-    this.container.innerHTML = '';
-    this.container.style.cssText = 'position:relative;display:flex;flex-direction:column;align-items:center;gap:8px;touch-action:none;user-select:none;';
-    const stage = document.createElement('div');
-    stage.style.cssText = 'width:100%;height:100%;display:flex;align-items:center;justify-content:center;cursor:ew-resize;';
-    this.img = document.createElement('img');
-    this.img.style.cssText = 'max-width:100%;max-height:100%;object-fit:contain;pointer-events:none;border-radius:14px;';
-    this.img.draggable = false;
-    this.img.src = this.urls[0];
-    stage.appendChild(this.img);
-    this.container.appendChild(stage);
-    const dots = document.createElement('div');
-    dots.className = 'turntable-dots';
-    dots.style.cssText = 'display:flex;gap:6px;';
-    this._dots = [];
-    for (let i = 0; i < this.urls.length; i++) {
-      const d = document.createElement('span');
-      d.className = 'turntable-dot' + (i === 0 ? ' active' : '');
-      d.style.cssText = 'width:8px;height:8px;border-radius:50%;background:rgba(217,180,90,0.25);transition:200ms;';
-      d.dataset.idx = String(i);
-      d.addEventListener('click', () => this.setIndex(i));
-      dots.appendChild(d);
-      this._dots.push(d);
-    }
-    this.container.appendChild(dots);
-    const lbl = document.createElement('div');
-    lbl.className = 'turntable-label';
-    lbl.style.cssText = 'font-size:11px;letter-spacing:0.14em;text-transform:uppercase;color:rgba(245,234,214,0.55);';
-    lbl.textContent = this.labels[0] || `1 / ${this.urls.length}`;
-    this.container.appendChild(lbl);
-    this._lbl = lbl;
-    this._stage = stage;
-  }
-  setIndex(i) {
-    const clamped = Math.max(0, Math.min(this.urls.length - 1, i));
-    if (clamped === this.idx) return;
-    this.idx = clamped;
-    this.img.src = this.urls[clamped];
-    this._lbl.textContent = this.labels[clamped] || `${clamped + 1} / ${this.urls.length}`;
-    for (let k = 0; k < this._dots.length; k++) {
-      this._dots[k].style.background = (k === clamped)
-        ? 'var(--gold, #d9b45a)' : 'rgba(217,180,90,0.25)';
-    }
-  }
-  _wire() {
-    let dragging = false, startX = 0, startIdx = 0;
-    const STEP_PX = 80;
-    this._stage.addEventListener('pointerdown', (e) => {
-      dragging = true; startX = e.clientX; startIdx = this.idx;
-      this._stage.setPointerCapture(e.pointerId);
-    });
-    this._stage.addEventListener('pointermove', (e) => {
-      if (!dragging) return;
-      const delta = e.clientX - startX;
-      this.setIndex(Math.round(startIdx + delta / STEP_PX));
-    });
-    const end = (e) => {
-      dragging = false;
-      try { this._stage.releasePointerCapture(e.pointerId); } catch {}
-    };
-    this._stage.addEventListener('pointerup', end);
-    this._stage.addEventListener('pointercancel', end);
-  }
-  destroy() {
-    for (const url of this.urls) URL.revokeObjectURL(url);
-    this.container.innerHTML = '';
-  }
 }
 
 // ============================================================

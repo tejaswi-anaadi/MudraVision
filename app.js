@@ -1,20 +1,14 @@
 // app.js
-// Top-level driver. Manages the three views (Learn, Practice, Capture), loads
-// captured mudras on boot and registers them in the k-NN index for instant
-// recognition, and renders the cards with the priority visual (scanned >
-// source > svg).
+// Top-level driver. Manages the two views (Learn, Practice) and renders the
+// cards with the priority visual (photo > component-hand photos > placeholder).
 
-import { CONNECTIONS, TIP_INDICES, FINGER_NAMES, tickFrame, resetSmoothing,
-         normalizeLandmarks } from './landmarks.js';
+import { CONNECTIONS, TIP_INDICES, FINGER_NAMES, tickFrame, resetSmoothing } from './landmarks.js';
 import { classify, preprocessHands, CLASSIFY, setModels } from './classifier.js';
 import { MUDRA_BY_ID, MUDRAS, CATEGORIES, MUDRAS_BY_CATEGORY } from './mudras.js';
 import { mudraArt, renderVisual, getAvailableTypes, pickBaseVisual,
-         setScannedFront, clearScannedFront, viewFromBuiltin, viewFromCapture,
+         viewFromBuiltin,
          wireImageFallbacks, preloadSourcePhotos, setAvailablePoses,
          hasPose } from './art.js';
-import * as store from './store.js';
-import * as knn from './knn.js';
-import * as capture from './capture.js';
 import { loadLandmarker, getLoadedLandmarker } from './mediapipe.js';
 import { initRecorder } from './recorder.js';
 import { openCamera, describeCameraError, watchCameraPermission } from './camera.js';
@@ -35,40 +29,7 @@ const NEON = {
   lockGlow: '#2a9d8f', searchGlow: '#d9b45a',
 };
 
-// ============================================================
-// Captured-mudra library — kept in memory after boot, refreshed when
-// the user adds, deletes, or imports.
-// ============================================================
-let CAPTURES = [];      // array of records from IndexedDB
-const captureBlobURLs = new Map();   // captureId → front-photo URL (also stored in art.js)
-
-async function loadCaptures() {
-  CAPTURES = await store.getAllMudras().catch(() => []);
-  for (const c of CAPTURES) {
-    const front = c.angles?.[0]?.photo;
-    if (front) {
-      const url = URL.createObjectURL(front);
-      captureBlobURLs.set(c.id, url);
-      setScannedFront(c.id, url);
-      if (c.builtinUpgrade) setScannedFront(c.builtinUpgrade, url);
-    }
-    knn.addMudra(c);
-  }
-}
-
-function libraryViews() {
-  const items = [];
-  // All built-ins (in their categories), then captures.
-  for (const m of MUDRAS) items.push(viewFromBuiltin(m));
-  for (const c of CAPTURES) items.push(viewFromCapture(c));
-  return items;
-}
-
-function viewForId(id, source) {
-  if (source === 'knn') {
-    const c = CAPTURES.find(x => x.id === id);
-    return c ? viewFromCapture(c) : null;
-  }
+function viewForId(id) {
   const m = MUDRA_BY_ID[id];
   return m ? viewFromBuiltin(m) : null;
 }
@@ -86,17 +47,17 @@ function loadModels() {
 }
 
 (async function bootstrap() {
+  // Yield once so the rest of this module (constants like HERO_PLATES and the
+  // Practice state declared further down) is initialised before boot uses it.
+  await null;
   loadModels();
-  await loadCaptures();
   // Build the in-memory set of mudras that have a pose file (built by
   // tools/extract_poses.py from real photos) so the renderer can show
   // the 3D wireframe option when one is available.
   Promise.all(['poses/_index.json', 'poses/ref/_index.json'].map(u =>
     fetch(u).then(r => (r.ok ? r.json() : [])).catch(() => [])))
     .then(([a, b]) => setAvailablePoses([...new Set([...a, ...b])]));
-  capture.init && capture.init();
   buildCatalog();
-  populateUpgradeDropdown();
   animateHero();
   wireNavigation();
   applyHashView();
@@ -110,49 +71,13 @@ function loadModels() {
   }
 })();
 
-function populateUpgradeDropdown() {
-  const sel = document.getElementById('capture-upgrade');
-  if (!sel) return;
-  // Wipe and rebuild — always reflects current state.
-  while (sel.options.length > 1) sel.remove(1);
-  // Group by category for readability.
-  const groups = {};
-  for (const m of MUDRAS) {
-    (groups[m.category] || (groups[m.category] = [])).push(m);
-  }
-  for (const cat of CATEGORIES) {
-    const items = groups[cat.id];
-    if (!items) continue;
-    const og = document.createElement('optgroup');
-    og.label = cat.title;
-    for (const m of items) {
-      const opt = document.createElement('option');
-      opt.value = m.id;
-      opt.textContent = `${m.names.iast} — ${m.names.en}`;
-      og.appendChild(opt);
-    }
-    sel.appendChild(og);
-  }
-}
-
 // ============================================================
-// LEARN VIEW — catalog of built-ins + captures
+// LEARN VIEW — catalog of built-in mudras
 // ============================================================
 function buildCatalog() {
   const root = document.getElementById('mudra-sections');
   if (!root) return;
-  // Compose category list — add a synthetic "captured" category if there are
-  // any captures (and not all of them are upgrades that should sit next to
-  // their built-in counterpart).
   const sections = CATEGORIES.map(c => ({ ...c, items: MUDRAS_BY_CATEGORY[c.id].map(viewFromBuiltin) }));
-  const capturedItems = CAPTURES.map(viewFromCapture);
-  if (capturedItems.length) {
-    sections.unshift({
-      id: 'captured', title: 'Your Captures',
-      subtitle: 'Mudras you have scanned with the camera',
-      items: capturedItems,
-    });
-  }
   root.innerHTML = sections.map(sec => `
     <section class="cat" id="cat-${sec.id}">
       <header class="cat-header">
@@ -165,31 +90,11 @@ function buildCatalog() {
       </div>
     </section>`).join('');
   wireImageFallbacks(root);
-  // Wire capture-card delete buttons.
-  root.querySelectorAll('[data-delete-capture]').forEach(btn => {
-    btn.addEventListener('click', async (e) => {
-      e.stopPropagation();
-      const id = btn.getAttribute('data-delete-capture');
-      if (!confirm('Delete this captured mudra?')) return;
-      await store.deleteMudra(id);
-      knn.removeMudra(id);
-      clearScannedFront(id);
-      const rec = CAPTURES.find(x => x.id === id);
-      if (rec?.builtinUpgrade) clearScannedFront(rec.builtinUpgrade);
-      const url = captureBlobURLs.get(id);
-      if (url) URL.revokeObjectURL(url);
-      captureBlobURLs.delete(id);
-      CAPTURES = CAPTURES.filter(x => x.id !== id);
-      buildCatalog();
-    });
-  });
 }
 
 function cardHtml(view) {
-  const captured = view.kind === 'capture';
   return `
     <article class="grid-card${view.is3D ? ' is-3d' : ''}" data-id="${view.id}" data-reliable="${!!view.reliable}">
-      ${captured ? `<button class="cap-card-del" data-delete-capture="${view.id}" title="Delete">×</button>` : ''}
       <div class="grid-card-art" data-hands="${view.hands}">${mudraArt(view)}</div>
       <div class="grid-card-names">
         <div class="grid-card-sa">${view.names.sa || '·'}</div>
@@ -261,20 +166,11 @@ function wireNavigation() {
       setView(target);
     });
   });
-  // Capture form submit
-  const form = document.getElementById('capture-form');
-  if (form) form.addEventListener('submit', startCaptureFromForm);
-  const saveBtn = document.getElementById('capture-save-btn');
-  if (saveBtn) saveBtn.addEventListener('click', onCaptureSave);
-  const retakeBtn = document.getElementById('capture-retake-btn');
-  if (retakeBtn) retakeBtn.addEventListener('click', onCaptureRetake);
 }
 
 function applyHashView() {
   const hash = window.location.hash;
-  const view = hash === '#practice' ? 'practice'
-             : hash === '#capture'  ? 'capture'
-             : 'learn';
+  const view = hash === '#practice' ? 'practice' : 'learn';
   setView(view);
 }
 
@@ -289,117 +185,6 @@ function setView(view) {
   } else {
     exitPractice();
   }
-  if (view === 'capture') {
-    showCaptureForm();
-    window.scrollTo(0, 0);
-  } else {
-    if (capture.isRunning && capture.isRunning()) capture.abortSession();
-  }
-}
-
-// ============================================================
-// CAPTURE flow glue
-// ============================================================
-function showCaptureForm() {
-  document.getElementById('capture-stage').classList.add('hidden');
-  document.getElementById('capture-review').classList.add('hidden');
-  document.getElementById('capture-form-panel').classList.remove('hidden');
-  // Dropdown is populated once at bootstrap; this just resets selection.
-}
-
-async function startCaptureFromForm(e) {
-  e.preventDefault();
-  const name = document.getElementById('capture-name').value.trim();
-  if (!name) return;
-  const upgrade = document.getElementById('capture-upgrade').value || null;
-  document.getElementById('capture-form-panel').classList.add('hidden');
-  document.getElementById('capture-stage').classList.remove('hidden');
-  await capture.startSession({
-    name,
-    builtinUpgrade: upgrade,
-    onDone: showReviewScreen,
-    onAbort: () => showCaptureForm(),
-  });
-}
-
-let pendingViewer = null;
-let pendingTurntable = null;
-
-async function showReviewScreen(record) {
-  document.getElementById('capture-stage').classList.add('hidden');
-  document.getElementById('capture-review').classList.remove('hidden');
-  // Build the 3D viewer + photo turntable from the captured angles.
-  const { HandSkeleton3D, PhotoTurntable } = await import('./viewer3d.js');
-  const skelHost = document.getElementById('review-skeleton');
-  const ttHost = document.getElementById('review-turntable');
-  skelHost.innerHTML = '';
-  ttHost.innerHTML = '';
-  pendingViewer = new HandSkeleton3D(skelHost);
-  if (record.angles[0]?.worldLandmarks?.length) {
-    pendingViewer.setPose(record.angles[0].worldLandmarks);
-  }
-  pendingTurntable = new PhotoTurntable(
-    ttHost,
-    record.angles.map(a => a.photo),
-    record.angles.map(a => a.label),
-  );
-  // Pre-fill displayName preview
-  const display = computeDisplayName(record.name, record.builtinUpgrade);
-  document.getElementById('review-display-name').textContent = display;
-  document.getElementById('review-3d-tag').style.display = (display.endsWith('· 3D') ? '' : 'none');
-}
-
-function computeDisplayName(name, builtinUpgrade) {
-  if (builtinUpgrade) return name + ' · 3D';
-  const lc = name.toLowerCase();
-  // Conflict with a built-in or an existing capture name?
-  const conflictBuiltin = MUDRAS.some(m =>
-    m.names.iast.toLowerCase() === lc ||
-    m.names.en.toLowerCase() === lc ||
-    m.id.toLowerCase() === lc);
-  const conflictCapture = CAPTURES.some(c => c.name.toLowerCase() === lc);
-  return (conflictBuiltin || conflictCapture) ? `${name} · 3D` : name;
-}
-
-async function onCaptureSave() {
-  const record = capture.getCurrentRecord();
-  if (!record) return;
-  // Optional meta from review screen
-  const sa = document.getElementById('review-sa')?.value?.trim() || '';
-  const iast = document.getElementById('review-iast')?.value?.trim() || '';
-  const en = document.getElementById('review-en')?.value?.trim() || '';
-  const usage = document.getElementById('review-usage')?.value?.trim() || '';
-  if (sa || iast || en || usage) {
-    record.meta = { sa, iast, en, usage };
-  }
-  const displayName = computeDisplayName(record.name, record.builtinUpgrade);
-  const saved = await capture.saveCapture(displayName);
-  // Register the scanned front URL globally so cards re-render with it.
-  const frontBlob = saved.angles[0]?.photo;
-  if (frontBlob) {
-    const url = URL.createObjectURL(frontBlob);
-    captureBlobURLs.set(saved.id, url);
-    setScannedFront(saved.id, url);
-    if (saved.builtinUpgrade) setScannedFront(saved.builtinUpgrade, url);
-  }
-  CAPTURES.push(saved);
-  buildCatalog();
-  // Tear down viewer / turntable.
-  if (pendingViewer) { pendingViewer.destroy(); pendingViewer = null; }
-  if (pendingTurntable) { pendingTurntable.destroy(); pendingTurntable = null; }
-  // Bounce back to the form for the next capture.
-  document.getElementById('capture-review').classList.add('hidden');
-  showCaptureForm();
-  document.getElementById('capture-form').reset();
-  // Confirmation chip
-  flashConfirmation(`Saved "${saved.displayName}". Try it in Practice!`);
-}
-
-function onCaptureRetake() {
-  if (pendingViewer) { pendingViewer.destroy(); pendingViewer = null; }
-  if (pendingTurntable) { pendingTurntable.destroy(); pendingTurntable = null; }
-  document.getElementById('capture-review').classList.add('hidden');
-  showCaptureForm();
 }
 
 function flashConfirmation(msg) {
@@ -644,8 +429,7 @@ function updateUI(result) {
   if (currentLockId) {
     const view = viewForId(currentLockId, currentLockSource);
     statusEl.textContent = view?.displayName || currentLockId;
-    hintEl.textContent = view?.is3D ? '3D scanned mudra'
-                       : view?.hands === 2 ? '(two-hand mudrā)' : '';
+    hintEl.textContent = view?.hands === 2 ? '(two-hand mudrā)' : '';
   } else if (result.top && result.top.score >= HINT_FLOOR) {
     const view = viewForId(result.top.id, result.top.source);
     statusEl.textContent = 'Hold steady…';
@@ -678,9 +462,9 @@ function hideCard() {
 }
 
 // Practice card: shows the priority visual + a segmented toggle of the
-// available types (photo / hands / scan / 3D). Photos are rendered EAGER so
+// available types (photo / hands / 3D). Photos are rendered EAGER so
 // they paint the moment the card appears, not after a fresh fetch.
-const TYPE_LABEL = { source: 'photo', parts: 'hands', scanned: 'scan', '3d': '3D', placeholder: '·' };
+const TYPE_LABEL = { source: 'photo', parts: 'hands', '3d': '3D', placeholder: '·' };
 
 function renderPracticeCard(view) {
   const base = pickBaseVisual(view);
@@ -718,7 +502,7 @@ function wirePracticeToggle(root, view) {
         const { HandSkeleton3D, loadPose, loadRefPose } = await import('./viewer3d.js');
         viewer3d = new HandSkeleton3D(host, { autoRotate: true });
         const slug = view.builtinUpgrade || view.id;
-        const ref = view.kind === 'capture' ? null : await loadRefPose(slug);
+        const ref = await loadRefPose(slug);
         if (ref?.hands?.length) {
           viewer3d.setHands(ref.hands, { mirrorLeft: ref.hands.length === 1 });
         } else {
@@ -735,16 +519,8 @@ function wirePracticeToggle(root, view) {
   });
 }
 
-// Resolve worldLandmarks for a mudra view, in priority order:
-//   1) the user's own capture (if any),
-//   2) the offline-extracted poses/{slug}.json.
+// Resolve worldLandmarks for a mudra from the offline-extracted poses/{slug}.json.
 async function getWorldLandmarksFor(view, loadPose) {
-  if (view.kind === 'capture' && view.record?.angles?.[0]?.worldLandmarks?.length) {
-    return {
-      points: view.record.angles[0].worldLandmarks,
-      handedness: view.record.angles[0].handedness || 'Right',
-    };
-  }
   const slug = view.builtinUpgrade || view.id;
   const data = await loadPose(slug);
   if (!data) return null;
@@ -819,7 +595,6 @@ function roundRect(c, x, y, w, h, r) {
 
 function drawDebug(hands, result) {
   const lines = [`Hands: ${hands.length}    Buffer: ${buffer.filter(Boolean).length}/${BUFFER_SIZE}    Lock: ${currentLockId || '—'} (${currentLockSource || '·'})`];
-  lines.push(`k-NN index: ${knn.size()} vectors across ${knn.mudraCount()} mudras`);
   hands.forEach((h, i) => {
     lines.push(`— Hand ${i + 1}  (${h.handId})  palm=${h.st.palmFacing} —`);
     for (const f of FINGER_NAMES) {

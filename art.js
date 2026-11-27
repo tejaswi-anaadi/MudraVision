@@ -1,13 +1,12 @@
 // art.js
 // Returns mudra art, picked by priority:
 //
-//   scanned (user's Capture front photo)  >  source (a real photograph)
-//     >  parts (the real photographs of the component hastas)  >  placeholder
+//   source (a real photograph)  >  parts (the real photographs of the
+//   component hastas)  >  placeholder
 //
 // Built-in mudras have a photograph ("source") or, for the deity/avatar
 // gestures that are defined as a combination of hastas, "parts": the real
-// photographs of each component hand, side by side. Captured mudras always
-// have a scanned photo and may inherit a source image from their builtinUpgrade.
+// photographs of each component hand, side by side.
 
 import { MUDRA_BY_ID } from './mudras.js';
 
@@ -67,48 +66,20 @@ export function setAvailablePoses(slugs) {
   for (const s of slugs) posesAvailable.add(s);
 }
 export function hasPose(view) {
-  // True if this view has either captured worldLandmarks OR a pose file.
-  if (view.kind === 'capture' && view.record?.angles?.[0]?.worldLandmarks?.length) return true;
+  // True if this mudra has a pose file.
   const slug = view.builtinUpgrade || view.id;
   return posesAvailable.has(slug);
 }
 
 // ============================================================
-// Scanned-photo registry — captured mudras' front-angle blob URLs.
-// Keyed by the built-in slug (for upgrades) AND the capture's own id.
-// app.js calls setScannedFront() after each capture is saved or loaded
-// from IndexedDB, so the renderer always knows the latest URL.
-// ============================================================
-const scannedFronts = new Map();   // key: builtin slug OR capture uuid → blobURL
-
-export function setScannedFront(key, blobURL) {
-  // Revoke any previous URL for that key to avoid leaks.
-  const prev = scannedFronts.get(key);
-  if (prev && prev !== blobURL) URL.revokeObjectURL(prev);
-  scannedFronts.set(key, blobURL);
-}
-export function clearScannedFront(key) {
-  const prev = scannedFronts.get(key);
-  if (prev) URL.revokeObjectURL(prev);
-  scannedFronts.delete(key);
-}
-export function getScannedFront(key) {
-  return scannedFronts.get(key) || null;
-}
-
-// ============================================================
 // Visual selection
 // ============================================================
-// view: { id, svgId?, builtinUpgrade?, captureId? }
+// view: { id, svgId?, builtinUpgrade? }
 //   svgId        — slug of the built-in whose photo/parts to use
 //   builtinUpgrade — if set, source/svg may be inherited from that slug
-//   captureId    — uuid; scanned URL keyed by this
 export function getMudraVisuals(view) {
   const slug = view.svgId || view.builtinUpgrade || view.id;
   const sourceSlug = view.builtinUpgrade || slug;
-  const scanned = (view.captureId && getScannedFront(view.captureId))
-               || (view.builtinUpgrade && getScannedFront(view.builtinUpgrade))
-               || getScannedFront(view.id);
 
   const source = hasPhoto(sourceSlug)
     ? { url: photoUrl(sourceSlug), kind: photoSource(sourceSlug) }
@@ -126,16 +97,14 @@ export function getMudraVisuals(view) {
     : null;
 
   return {
-    placeholder: { markup: genericMudraSvg(view.displayName || view.name || 'Captured') },
+    placeholder: { markup: genericMudraSvg(view.displayName || view.name || '') },
     source,
     parts: parts && parts.length ? parts : null,
-    scanned,
   };
 }
 
 export function pickBaseVisual(view) {
   const v = getMudraVisuals(view);
-  if (v.scanned) return { type: 'scanned', url: v.scanned };
   if (v.source)  return { type: 'source',  url: v.source.url, kind: v.source.kind };
   if (v.parts)   return { type: 'parts' };
   return { type: 'placeholder', markup: v.placeholder.markup };
@@ -146,7 +115,6 @@ export function getAvailableTypes(view) {
   const types = [];
   if (v.source) types.push('source');
   if (v.parts) types.push('parts');
-  if (v.scanned) types.push('scanned');
   if (hasPose(view)) types.push('3d');
   if (!types.length) types.push('placeholder');
   return types;
@@ -197,10 +165,6 @@ export function renderVisual(view, type, opts = {}) {
   const v = getMudraVisuals(view);
   const lazy = opts.eager ? '' : ' loading="lazy"';
   switch (type) {
-    case 'scanned':
-      return v.scanned
-        ? `<img class="mudra-photo mudra-scanned" src="${v.scanned}" alt="" decoding="async">`
-        : renderVisual(view, 'placeholder', opts);
     case 'source':
       return v.source
         ? `<img class="mudra-photo" src="${v.source.url}" alt=""${lazy} decoding="async" data-source="${v.source.kind}">`
@@ -220,7 +184,7 @@ export function mudraArt(view, opts = {}) {
 
 // SVG fallback wiring for source <img> elements that fail to load.
 export function wireImageFallbacks(root = document) {
-  root.querySelectorAll('img.mudra-photo:not(.mudra-scanned)').forEach(img => {
+  root.querySelectorAll('img.mudra-photo').forEach(img => {
     img.addEventListener('error', () => {
       const wrap = document.createElement('div');
       wrap.className = 'mudra-svg';
@@ -230,13 +194,13 @@ export function wireImageFallbacks(root = document) {
   });
 }
 
-// Generic placeholder for captures with no inherited SVG.
+// Generic placeholder for a mudra with no photograph.
 function genericMudraSvg(name) {
   const text = (name || '').slice(0, 10);
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 280" fill="none">
     <circle cx="100" cy="140" r="64" stroke="currentColor" stroke-width="3" stroke-dasharray="4 6" opacity="0.55"/>
     <circle cx="100" cy="140" r="46" stroke="currentColor" stroke-width="2" stroke-dasharray="2 4" opacity="0.35"/>
-    <text x="100" y="146" text-anchor="middle" font-family="Manrope, sans-serif"
+    <text x="100" y="146" text-anchor="middle" font-family="Mukta, sans-serif"
           font-size="13" font-weight="600" fill="currentColor" opacity="0.85"
           letter-spacing="0.06em">${escapeSvg(text)}</text>
   </svg>`;
@@ -246,7 +210,7 @@ function escapeSvg(s) {
 }
 
 // ============================================================
-// Build a view object for a built-in or captured mudra
+// Build a view object for a built-in mudra
 // ============================================================
 export function viewFromBuiltin(mudra) {
   return {
@@ -254,7 +218,6 @@ export function viewFromBuiltin(mudra) {
     id: mudra.id,
     svgId: mudra.svg || mudra.id,
     builtinUpgrade: null,
-    captureId: null,
     displayName: mudra.names.iast,
     names: mudra.names,
     usage: mudra.usage,
@@ -264,24 +227,5 @@ export function viewFromBuiltin(mudra) {
     reliable: mudra.reliable,
     category: mudra.category,
     is3D: false,
-  };
-}
-export function viewFromCapture(rec) {
-  return {
-    kind: 'capture',
-    id: rec.id,
-    svgId: rec.builtinUpgrade || null,
-    builtinUpgrade: rec.builtinUpgrade,
-    captureId: rec.id,
-    displayName: rec.displayName,
-    name: rec.name,
-    names: rec.meta || { sa: '', iast: rec.displayName, en: rec.name },
-    usage: rec.meta?.usage || 'User-captured mudra.',
-    howto: rec.meta?.howto || `${rec.angles.length} angles captured.`,
-    hands: 1,
-    reliable: true,
-    category: rec.builtinUpgrade ? 'asamyukta' : 'captured',
-    is3D: true,
-    record: rec,
   };
 }

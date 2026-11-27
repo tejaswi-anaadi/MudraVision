@@ -11,22 +11,17 @@ browser; nothing is uploaded.
 - **Learn** — 69 mudras across four families (28 Asamyukta · 24 Samyukta ·
   7 Devatā · 10 Daśāvatāra), each card with Devanāgarī, IAST, English,
   the way the hand is formed, and its viniyoga.
-- **Capture** — scan a mudra from two angles (front + sideways tilt) with
-  a target ring, three live gates (Position, Orientation, Steady), a big
-  green tick on each successful capture, and a clean alpha-masked PNG of
-  your hand on a transparent background.
 - **Practice** — point the camera at your hand and the app recognises
-  the mudra live, with a neon skeleton overlay and a per-mudra card.
-  Captured mudras become recognisable instantly; built-ins are matched by
-  a rule-based engine + the captures are matched by k-NN over normalised
-  3D landmark vectors.
+  the mudra live, with a gold hand overlay and a per-mudra card (photo,
+  component hands, or a rotatable 3D hand). Recognition uses small neural
+  networks trained on real dancers' hand landmarks, backed by rules.
 
 ## Tech
 - Pure static HTML / CSS / vanilla ES-module JS — no build step
-- MediaPipe Tasks Vision 1.2.3 (Hand Landmarker + Selfie Segmenter), pinned,
+- MediaPipe Tasks Vision 1.2.3 (Hand Landmarker), pinned,
   loaded from jsDelivr CDN
-- Three.js for the rotatable 3D skeleton viewer
-- IndexedDB for persisting captured mudras (photos as Blobs)
+- Three.js for the rotatable 3D hand viewer
+- IndexedDB for the optional dataset recorder
 
 ## Run locally
 Any static file server over HTTPS or localhost — the browser needs a
@@ -103,19 +98,16 @@ pipeline (it says nothing about accuracy; `npm test` runs that smoke test).
 |---|---|
 | `index.html` `styles.css` | Shell + theme |
 | `app.js` | View routing, Learn catalog, Practice loop, glue |
-| `landmarks.js` | Geometry helpers + normalisation for k-NN |
-| `classifier.js` | Combines learned models + rule scores (+ k-NN for your own captures) |
+| `landmarks.js` | Geometry helpers for the rule engine |
+| `classifier.js` | Combines learned models + rule scores |
 | `features.js` | Hand-shape features + model inference, shared by browser and training |
 | `models/` | Trained recognition models and their held-out accuracy (`eval.json`) |
 | `mudras.js` | The 69-entry mudra database |
-| `art.js` | Visual selector (scanned ▸ photo ▸ component-hand photos ▸ placeholder) |
-| `mediapipe.js` | Singleton loaders for HandLandmarker + ImageSegmenter (pinned CDN version, GPU→CPU fallback) |
+| `art.js` | Visual selector (photo ▸ component-hand photos ▸ placeholder) |
+| `mediapipe.js` | Singleton HandLandmarker loader (pinned CDN version, GPU→CPU fallback) |
 | `camera.js` | Opens the webcam and explains precisely why it failed (blocked / none / busy / timeout) |
-| `capture.js` | Guided 2-angle capture flow + hand segmentation |
-| `store.js` | IndexedDB CRUD + export/import |
 | `recorder.js` | Labelled-landmark dataset recorder (Practice → R) |
-| `knn.js` | In-memory k-NN classifier |
-| `viewer3d.js` | Three.js rotatable skeleton + photo turntable |
+| `viewer3d.js` | Three.js rotatable 3D hand |
 | `images/` | Real hand photographs on parchment (see `ATTRIBUTION.md`); built by `tools/build_plates.py` from dataset frames |
 | `poses/src/` | Original dataset photographs used to extract 3D poses (not displayed) |
 
