@@ -34,10 +34,14 @@ export const CURL_BANDS = {
   curled:   { min: 0.65, max: 1.00, soft: 0.18 },
 };
 
+// Fraction of the touch threshold inside which a pinch scores 1.0.
+const TOUCH_FULL = 0.5;
+
 export const TOUCH = {
   tipToTip:  0.28,
   tipToBase: 0.40,
-  cluster:   0.20,
+  cluster:   0.38,
+  clusterZero: 0.85,
 };
 
 export const SMOOTHING = {
@@ -213,8 +217,9 @@ export function directionMatchScore(lm, finger, targetDir) {
 // ============================================================
 export function touchScore(lm, fingerA, fingerB, threshold = TOUCH.tipToTip) {
   const d = normDist(lm, FINGERS[fingerA].tip, FINGERS[fingerB].tip);
-  // 1 at d=0, 0.5 at d≈threshold*0.8, ~0 at d=threshold*1.6
-  return clamp(1 - d / (threshold * 1.6));
+  // Full credit once the tips are within threshold*TOUCH_FULL (real pinches
+  // measure ~0.1-0.25 hand-scales, never 0), fading to 0 at threshold*2.
+  return clamp((threshold * 2 - d) / (threshold * (2 - TOUCH_FULL)));
 }
 export function tipsTouching(lm, fa, fb, threshold = TOUCH.tipToTip) {
   return normDist(lm, FINGERS[fa].tip, FINGERS[fb].tip) < threshold;
@@ -250,8 +255,12 @@ export function clusterDistance(lm) {
   for (const p of tips) maxD = Math.max(maxD, mag({x:p.x-cx, y:p.y-cy, z:z(p)-cz}));
   return maxD / handScale(lm);
 }
+// Perfect at <= TOUCH.cluster, fading to 0 at TOUCH.clusterZero. Five real
+// fingertips never reach a single point, and MediaPipe's tip noise puts a
+// genuine bud at ~0.3-0.45 hand-scales, so the old zero point (0.20) rejected
+// every real Mukula.
 export function clusterScore(lm) {
-  return clamp(1 - clusterDistance(lm) / TOUCH.cluster);
+  return clamp(1 - (clusterDistance(lm) - TOUCH.cluster) / (TOUCH.clusterZero - TOUCH.cluster));
 }
 
 // ============================================================

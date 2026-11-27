@@ -1,0 +1,15 @@
+{
+  "name": "mudra-vision",
+  "private": true,
+  "type": "module",
+  "description": "Bharatanatyam hasta (mudra) learning app with live camera recognition.",
+  "scripts": {
+    "test": "node tools/test_recognition.mjs && node tools/test_twohand.mjs",
+    "test:single": "node tools/test_recognition.mjs",
+    "test:two": "node tools/test_twohand.mjs",
+    "diagnose": "node tools/diagnose.mjs",
+    "features": "node tools/features.mjs",
+    "serve": "python3 -m http.server 8088"
+  },
+  "engines": { "node": ">=18" }
+}

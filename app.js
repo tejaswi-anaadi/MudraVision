@@ -568,10 +568,13 @@ function processResults(results) {
     return;
   }
   framesSinceHand = 0;
-  const hands = preprocessHands(lmList, results.handednesses || results.handedness);
+  const aspect = practiceVideo.videoWidth && practiceVideo.videoHeight
+    ? practiceVideo.videoWidth / practiceVideo.videoHeight : 1;
+  const hands = preprocessHands(lmList, results.handednesses || results.handedness, aspect,
+                               results.worldLandmarks);
   const result = classify(hands);
   const drawMode = currentLockId ? 'lock' : 'search';
-  for (const h of hands) drawSkeleton(h.lm, drawMode);
+  for (const h of hands) drawSkeleton(h.norm || h.lm, drawMode);
 
   if (result.top && result.top.score >= CANDIDATE_FLOOR &&
       result.top.score - (result.second?.score || 0) >= CLASSIFY.margin * 0.5) {
@@ -599,7 +602,7 @@ function bufferConsensus() {
 function updateUI(result) {
   const topScore = result.top ? result.top.score : 0;
   confEl.style.width = Math.round(topScore * 100) + '%';
-  confEl.style.background = topScore >= CLASSIFY.threshold
+  confEl.style.background = result.lock
     ? 'linear-gradient(90deg, #39ff7d, #00f0ff)'
     : 'linear-gradient(90deg, #00f0ff, #ff00e0)';
 
@@ -648,7 +651,8 @@ function showCard(id, source) {
 
 function hideCard() {
   if (cardTimer) { clearTimeout(cardTimer); cardTimer = null; }
-  cardEl.classList.remove('visible');
+  // cardEl is bound in initPractice(); exitPractice() runs during boot before that.
+  if (cardEl) cardEl.classList.remove('visible');
 }
 
 // Practice card: shows the priority visual + a segmented toggle of the

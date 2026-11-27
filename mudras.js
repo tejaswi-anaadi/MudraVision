@@ -51,7 +51,7 @@ export const MUDRAS = [
     constraints: [
       { type:'curl', finger:'index',  state:'extended', weight:1 },
       { type:'curl', finger:'middle', state:'extended', weight:1 },
-      { type:'curl', finger:'ring',   state:'curled',   weight:1.2 },
+      { type:'curl', finger:'ring',   state:['half','curled'], weight:1.2 },
       { type:'curl', finger:'pinky',  state:'extended', weight:1 },
       { type:'curl', finger:'thumb',  state:['curled','half'], weight:0.5 },
     ],
@@ -142,7 +142,7 @@ export const MUDRAS = [
     hands: 1, recognize: true, reliable: false,
     constraints: [
       { type:'curl', finger:'index',  state:'half', weight:1.2 },
-      { type:'curl', finger:'middle', state:'extended', weight:1 },
+      { type:'curl', finger:'middle', state:['extended','half'], weight:0.8 },
       { type:'curl', finger:'ring',   state:'half', weight:1.2 },
       { type:'curl', finger:'pinky',  state:'extended', weight:1 },
       { type:'curl', finger:'thumb',  state:['half','curled'], weight:0.5 },
@@ -197,7 +197,7 @@ export const MUDRAS = [
       { type:'curl', finger:'ring',   state:'curled', weight:1 },
       { type:'curl', finger:'pinky',  state:'curled', weight:1 },
       // Thumb is held out (still effectively a Śikhara base).
-      { type:'curl', finger:'thumb',  state:['extended','half'], weight:0.8 },
+      { type:'curl', finger:'thumb',  state:['extended','half','curled'], weight:0.25 },
     ],
   },
   {
@@ -208,7 +208,7 @@ export const MUDRAS = [
     hands: 1, recognize: true, reliable: false,
     constraints: [
       { type:'touch', fingers:['thumb','index'],  threshold:0.28, weight:1.1 },
-      { type:'touch', fingers:['thumb','middle'], threshold:0.30, weight:1.1 },
+      { type:'touch', fingers:['thumb','middle'], threshold:0.45, weight:0.6 },
       { type:'curl', finger:'ring',  state:['half','curled'], weight:0.7 },
       { type:'curl', finger:'pinky', state:['half','curled'], weight:0.7 },
     ],
@@ -270,12 +270,25 @@ export const MUDRAS = [
     usage: "Serpent, sandal-paste, sprinkling water, elephant's ear, slow-moving.",
     hands: 1, recognize: true, reliable: false,
     constraints: [
-      { type:'curl', finger:'index',  state:'half', weight:1 },
-      { type:'curl', finger:'middle', state:'half', weight:1 },
-      { type:'curl', finger:'ring',   state:'half', weight:1 },
-      { type:'curl', finger:'pinky',  state:'half', weight:1 },
-      { type:'curl', finger:'thumb',  state:['half','curled'], weight:0.6 },
-      { type:'spread', max:0.13, weight:1 },
+      // The hollow-bowl shape is a property of the WHOLE hand: the four
+      // fingers share a gentle bend (mean curl ~0.2-0.6). Individually they
+      // may sit anywhere from nearly straight to half-bent, so per-finger
+      // 'half' bands were rejecting genuine photos. A flat hand (Patāka,
+      // mean ~0) and a fist (Muṣṭi, mean ~0.9) both fall outside the band.
+      { type:'custom', name:'cupped', weight:3,
+        test: (lm, st) => {
+          const c = st.curlScore;
+          const mean = (c.index + c.middle + c.ring + c.pinky) / 4;
+          return Math.min(Math.max(0, Math.min(1, (mean - 0.08) / 0.10)),
+                          Math.max(0, Math.min(1, (0.70 - mean) / 0.12)));
+        } },
+      { type:'curl', finger:'index',  state:['extended','half'], weight:0.5 },
+      { type:'curl', finger:'middle', state:['extended','half'], weight:0.5 },
+      { type:'curl', finger:'ring',   state:['extended','half'], weight:0.5 },
+      { type:'curl', finger:'pinky',  state:['extended','half'], weight:0.5 },
+      { type:'curl', finger:'thumb',  state:['extended','half','curled'], weight:0.2 },
+      // Fingers held together (not fanned like Padmakośa), with some slack.
+      { type:'spread', max:0.32, soft:0.12, weight:1 },
     ],
   },
   {
@@ -339,7 +352,7 @@ export const MUDRAS = [
       // The WIDE fan is the defining feature — heavily weighted and with a
       // high minimum, so an ordinary open hand (Pataka, Ardhacandra) whose
       // fingers are held together can't accumulate enough to win.
-      { type:'spread', min:0.30, weight:3.2 },
+      { type:'spread', min:0.45, soft:0.12, weight:3.2 },
       { type:'thumbIndexAngle', min:45, weight:0.6 },
       // EVERY finger must be genuinely straight. Without this, a hand with
       // one bent finger (Arāla) or a cupped hand still scored high from the
@@ -454,11 +467,19 @@ export const MUDRAS = [
     usage: "Water lily, eating, the seal, navel, plantain flower, Cupid's arrow, offering.",
     hands: 1, recognize: true, reliable: true,
     constraints: [
-      { type:'clustered', weight:1.6 },
-      { type:'curl', finger:'index',  state:['half','curled'], weight:0.7 },
-      { type:'curl', finger:'middle', state:['half','curled'], weight:0.7 },
-      { type:'curl', finger:'ring',   state:['half','curled'], weight:0.7 },
-      { type:'curl', finger:'pinky',  state:['half','curled'], weight:0.7 },
+      { type:'clustered', weight:3 },
+      // A bud has bent-forward fingers meeting the thumb; a clenched fist
+      // (Muṣṭi, Kapittha) also brings the tips together but is far more curled.
+      { type:'custom', name:'notFist', weight:1.5,
+        test: (lm, st) => {
+          const c = st.curlScore;
+          const mean = (c.index + c.middle + c.ring + c.pinky) / 4;
+          return Math.max(0, Math.min(1, (0.80 - mean) / 0.30));
+        } },
+      { type:'curl', finger:'index',  state:['half','curled'], weight:0.35 },
+      { type:'curl', finger:'middle', state:['half','curled'], weight:0.35 },
+      { type:'curl', finger:'ring',   state:['half','curled'], weight:0.35 },
+      { type:'curl', finger:'pinky',  state:['half','curled'], weight:0.35 },
     ],
   },
   {
@@ -469,16 +490,17 @@ export const MUDRAS = [
     hands: 1, recognize: true, reliable: false,
     constraints: [
       // Thumb, middle, ring, pinky cluster at a point — index stays free.
-      { type:'touch', fingers:['thumb','middle'], threshold:0.28, weight:1 },
-      { type:'touch', fingers:['thumb','ring'],   threshold:0.30, weight:1 },
-      { type:'touch', fingers:['thumb','pinky'],  threshold:0.34, weight:0.7 },
-      // Index is held away — half-bent or extended, but NOT at the cluster.
-      { type:'curl', finger:'index', state:['half','extended'], weight:0.9 },
+      { type:'touch', fingers:['thumb','middle'], threshold:0.45, weight:1 },
+      { type:'touch', fingers:['thumb','ring'],   threshold:0.70, weight:0.8 },
+      { type:'touch', fingers:['thumb','pinky'],  threshold:0.75, weight:0.5 },
+      // Index is held away — half-bent, clearly less curled than the other
+      // three, but NOT at the cluster.
+      { type:'curl', finger:'index', state:['half','extended'], weight:1.2 },
       { type:'notTouch', fingers:['thumb','index'], threshold:0.30, weight:0.9 },
       // Other three fingers are bent (in the cluster).
-      { type:'curl', finger:'middle', state:['half','curled'], weight:0.6 },
-      { type:'curl', finger:'ring',   state:['half','curled'], weight:0.6 },
-      { type:'curl', finger:'pinky',  state:['half','curled'], weight:0.6 },
+      { type:'curl', finger:'middle', state:'curled', weight:0.9 },
+      { type:'curl', finger:'ring',   state:'curled', weight:0.9 },
+      { type:'curl', finger:'pinky',  state:'curled', weight:0.9 },
     ],
   },
   {

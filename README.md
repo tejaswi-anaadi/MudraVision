@@ -36,13 +36,30 @@ secure context to access the camera. Examples:
 python3 -m http.server 8088   # then open http://localhost:8088/
 ```
 
+## Recognition tests
+```bash
+npm test                              # single-hand fixtures + two-hand scenarios
+node tools/diagnose.mjs trishula      # why a pose scores the way it does
+node tools/features.mjs               # measured finger features for every fixture
+node tools/test_recognition.mjs --space=world   # compare landmark spaces
+```
+The tests replay the landmarks extracted from the reference photos in
+`poses/` through the **same pipeline the camera uses**: image landmarks
+(corrected for the webcam aspect ratio) for position, MediaPipe
+`worldLandmarks` for finger shape. They report top‑1, top‑3 and "would lock"
+(the app's own candidate rule). `tools/baseline.json` is a ratchet — a pose
+that passes there must keep passing. Fixtures whose extracted landmarks do not
+fit the photo are listed in `tools/fixture_quality.json` and excluded from the
+score. The fixtures are also the tuning set, so these numbers are an
+optimistic ceiling, not field accuracy.
+
 ## Files
 | File | Role |
 |---|---|
 | `index.html` `styles.css` | Shell + theme |
 | `app.js` | View routing, Learn catalog, Practice loop, glue |
 | `landmarks.js` | Geometry helpers + normalisation for k-NN |
-| `classifier.js` | Rule-based mudra scoring + k-NN merger |
+| `classifier.js` | Rule-based mudra scoring (+ structural penalties) + k-NN merger |
 | `mudras.js` | The 69-entry mudra database |
 | `svg.js` | Neon line-art per mudra |
 | `art.js` | Three-type visual selector (svg ▸ source ▸ scanned) |
