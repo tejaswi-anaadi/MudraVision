@@ -23,8 +23,8 @@ browser; nothing is uploaded.
 
 ## Tech
 - Pure static HTML / CSS / vanilla ES-module JS — no build step
-- MediaPipe Tasks Vision (Hand Landmarker + Selfie Segmenter) loaded from
-  jsDelivr CDN
+- MediaPipe Tasks Vision 1.2.3 (Hand Landmarker + Selfie Segmenter), pinned,
+  loaded from jsDelivr CDN
 - Three.js for the rotatable 3D skeleton viewer
 - IndexedDB for persisting captured mudras (photos as Blobs)
 
@@ -86,7 +86,8 @@ pipeline (it says nothing about accuracy; `npm test` runs that smoke test).
 | `classifier.js` | Rule-based mudra scoring (+ structural penalties) + k-NN merger |
 | `mudras.js` | The 69-entry mudra database |
 | `art.js` | Visual selector (scanned ▸ photo ▸ component-hand photos ▸ placeholder) |
-| `mediapipe.js` | Singleton loaders for HandLandmarker + ImageSegmenter |
+| `mediapipe.js` | Singleton loaders for HandLandmarker + ImageSegmenter (pinned CDN version, GPU→CPU fallback) |
+| `camera.js` | Opens the webcam and explains precisely why it failed (blocked / none / busy / timeout) |
 | `capture.js` | Guided 2-angle capture flow + hand segmentation |
 | `store.js` | IndexedDB CRUD + export/import |
 | `recorder.js` | Labelled-landmark dataset recorder (Practice → R) |

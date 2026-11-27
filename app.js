@@ -17,6 +17,7 @@ import * as knn from './knn.js';
 import * as capture from './capture.js';
 import { loadLandmarker, getLoadedLandmarker } from './mediapipe.js';
 import { initRecorder } from './recorder.js';
+import { openCamera, describeCameraError, watchCameraPermission } from './camera.js';
 
 // ============================================================
 // Tuning
@@ -26,7 +27,6 @@ const LOCK_FRAMES_NEEDED = 6;
 const CANDIDATE_FLOOR = 0.62;
 const HINT_FLOOR = 0.70;
 const LOST_HAND_RESET_FRAMES = 6;
-const HERO_CYCLE = ['pataka','alapadma','mukula','hamsasya','shikhara','mayura','suchi','ardhachandra'];
 const NEON = {
   bone: '#00f0ff', boneCore: '#caf6ff',
   tip: '#ff00e0',  joint: '#00f0ff',
@@ -190,88 +190,49 @@ function cardHtml(view) {
     </article>`;
 }
 
-// Cycle hero glyph.
-// Curated set of visually-distinct single-hand mudras that have a pose
-// file (poses/{slug}.json extracted from a real photo). The hero cycles
-// through these as a single slowly-rotating holographic wireframe.
-const HERO_WIRE_CYCLE = [
-  'pataka', 'mayura', 'kartarimukha', 'ardhachandra', 'mukula',
-  'kapittha', 'trishula', 'shikhara', 'padmakosha', 'bhramara',
-  'tripataka', 'katakamukha',
+// Hero: a slow cross-fade through real photographs of hastas on parchment.
+const HERO_PLATES = [
+  'pataka', 'matsya', 'mayura', 'kartariswastika', 'mukula', 'pushpaputa',
+  'shikhara', 'samputa', 'hamsasya', 'kilaka', 'tripataka', 'shankha',
 ];
 
-async function animateHero() {
-  const glyphHost = document.getElementById('hero-glyph');
-  if (!glyphHost) return;
+function animateHero() {
+  const host = document.getElementById('hero-glyph');
+  if (!host) return;
+  host.classList.add('hero-plates');
+  host.innerHTML =
+    '<img class="hero-plate on" alt=""><img class="hero-plate" alt="">' +
+    '<div class="hero-plate-label"></div>';
+  const imgs = [...host.querySelectorAll('img.hero-plate')];
+  const label = host.querySelector('.hero-plate-label');
+  let i = 0, front = 0;
 
-  // Build the holographic wireframe viewer once. If WebGL or the pose
-  // files aren't available, fall back to the old image cycle.
-  let viewer = null, loadPose = null;
-  try {
-    const v3 = await import('./viewer3d.js');
-    loadPose = v3.loadPose;
-    glyphHost.innerHTML = '';
-    glyphHost.classList.add('hero-glyph-3d');
-    // Mount point for the canvas + a floating label.
-    const stage = document.createElement('div');
-    stage.className = 'hero-wire-stage';
-    glyphHost.appendChild(stage);
-    const label = document.createElement('div');
-    label.className = 'hero-wire-label';
-    glyphHost.appendChild(label);
-    viewer = new v3.HandSkeleton3D(stage, { autoRotate: true });
-    glyphHost._heroLabel = label;
-  } catch (e) {
-    console.warn('Hero wireframe unavailable, falling back to images:', e);
-    return animateHeroFallback(glyphHost);
-  }
-
-  // Only cycle through slugs whose pose file actually exists.
-  const available = [];
-  for (const slug of HERO_WIRE_CYCLE) {
-    const pose = await loadPose(slug);
-    if (pose && pose.worldLandmarks?.length === 21) available.push({ slug, pose });
-  }
-  if (available.length === 0) return animateHeroFallback(glyphHost);
-
-  let i = 0;
   const show = () => {
-    const { slug, pose } = available[i % available.length];
-    const m = MUDRA_BY_ID[slug];
-    viewer.setPose(pose.worldLandmarks, pose.handedness);
-    if (glyphHost._heroLabel && m) {
-      glyphHost._heroLabel.innerHTML =
-        `<span class="hero-wire-sa">${m.names.sa}</span>
-         <span class="hero-wire-iast">${m.names.iast}</span>`;
-      glyphHost._heroLabel.classList.remove('show');
-      void glyphHost._heroLabel.offsetWidth;
-      glyphHost._heroLabel.classList.add('show');
-    }
+    const m = MUDRA_BY_ID[HERO_PLATES[i % HERO_PLATES.length]];
     i++;
+    if (!m) return;
+    const base = pickBaseVisual(viewFromBuiltin(m));
+    if (base.type !== 'source') return;
+    const pre = new Image();                       // warm the cache first
+    pre.onload = () => {
+      const next = imgs[1 - front];
+      // Flip image and label together, only once the new plate has really loaded.
+      next.onload = () => {
+        next.classList.add('on');
+        imgs[front].classList.remove('on');
+        front = 1 - front;
+        label.classList.remove('show');
+        label.innerHTML = `<span class="hero-plate-sa">${m.names.sa}</span>` +
+                          `<span class="hero-plate-iast">${m.names.iast}</span>`;
+        void label.offsetWidth;
+        label.classList.add('show');
+      };
+      next.src = base.url;
+    };
+    pre.src = base.url;
   };
   show();
   setInterval(show, 4200);
-}
-
-// Fallback: the original image/SVG cross-fade cycle.
-function animateHeroFallback(glyphHost) {
-  let i = 0;
-  const render = () => {
-    const id = HERO_CYCLE[i % HERO_CYCLE.length];
-    const m = MUDRA_BY_ID[id];
-    if (!m) { i++; return; }
-    const view = viewFromBuiltin(m);
-    glyphHost.style.opacity = '0';
-    glyphHost.style.transition = 'opacity 400ms ease';
-    setTimeout(() => {
-      glyphHost.innerHTML = mudraArt(view);
-      wireImageFallbacks(glyphHost);
-      glyphHost.style.opacity = '1';
-    }, 400);
-    i++;
-  };
-  render();
-  setInterval(render, 3200);
 }
 
 // ============================================================
@@ -455,24 +416,17 @@ let modelLoaded = false;
 let domWired = false;
 let framesSinceHand = 0;
 
+// How long to wait for the hand-tracking model before telling the user (it is
+// ~10 MB from a CDN the first time).
+const MODEL_WAIT_MS = 60000;
+let loopRunning = false;
+let practiceBooting = null;
+let loaderTimer = null;
+let permissionWatched = false;
+
 async function enterPractice() {
-  if (!domWired) {
-    await initPractice();
-    return;
-  }
-  try {
-    if (!practiceVideo.srcObject) {
-      setLoader('Requesting camera…');
-      await startWebcam();
-      hideLoader();
-    } else {
-      await practiceVideo.play().catch(() => {});
-    }
-    if (modelLoaded) statusEl.textContent = 'Searching…';
-  } catch (err) {
-    setLoader('Camera access denied. Allow camera and reload, or go back to Learn.');
-    console.error(err);
-  }
+  if (!domWired) wirePracticeDom();
+  bootPractice();
 }
 
 function exitPractice() {
@@ -489,7 +443,7 @@ function exitPractice() {
   if (recorder) recorder.cancel();
 }
 
-async function initPractice() {
+function wirePracticeDom() {
   practiceVideo = document.getElementById('webcam');
   practiceCanvas = document.getElementById('overlay');
   practiceCtx = practiceCanvas.getContext('2d');
@@ -514,42 +468,90 @@ async function initPractice() {
   });
   window.addEventListener('pagehide', exitPractice);
   domWired = true;
+}
 
+// Bring Practice up: camera + hand model. Safe to call repeatedly (Try again,
+// permission granted later, re-entering the view); concurrent calls share one run.
+function bootPractice() {
+  if (practiceBooting) return practiceBooting;
+  practiceBooting = (async () => {
+    try {
+      // The model needs no camera, so download it NOW, alongside the permission
+      // prompt, instead of after it.
+      const modelReady = modelLoaded ? Promise.resolve() : loadHandModel();
+      modelReady.catch(() => {});                       // reported below
+
+      if (!practiceVideo.srcObject) {
+        setLoader('Waiting for camera permission — click Allow in your browser…');
+        await openCamera(practiceVideo);
+        if (document.body.dataset.view !== 'practice') { exitPractice(); return; }
+        practiceCanvas.width  = practiceVideo.videoWidth;
+        practiceCanvas.height = practiceVideo.videoHeight;
+      } else {
+        await practiceVideo.play().catch(() => {});
+      }
+      if (!modelLoaded) {
+        setLoader('Camera ready. Loading hand tracking (first time takes about 10 seconds)…', { tick: true });
+        await modelReady;
+      }
+      hideLoader();
+      statusEl.textContent = 'Searching…';
+      if (!loopRunning) { loopRunning = true; requestAnimationFrame(loop); }
+    } catch (err) {
+      showPracticeError(err);
+    } finally {
+      practiceBooting = null;
+    }
+  })();
+  return practiceBooting;
+}
+
+async function loadHandModel() {
+  let timer;
+  const timeout = new Promise((_, rej) => {
+    timer = setTimeout(() => rej(Object.assign(new Error('model-timeout'), { isModel: true })), MODEL_WAIT_MS);
+  });
   try {
-    await startWebcam();
-  } catch (err) {
-    setLoader('Camera access denied. Allow camera and reload, or go back to Learn.');
-    console.error(err);
-    return;
-  }
-  try {
-    await loadLandmarker({ numHands: 2 });
+    await Promise.race([loadLandmarker({ numHands: 2 }), timeout]);
     modelLoaded = true;
   } catch (err) {
-    setLoader('Failed to load hand model. Check your connection and reload.');
-    console.error(err);
+    err.isModel = true;
+    throw err;
+  } finally { clearTimeout(timer); }
+}
+
+function showPracticeError(err) {
+  console.error(err);
+  if (err?.isModel) {
+    setLoader(err.message === 'model-timeout'
+      ? 'Hand tracking is taking too long to load. Check your internet connection (it downloads about 10 MB the first time).'
+      : 'Hand tracking could not be loaded. Check your internet connection.', { retry: true });
     return;
   }
-  hideLoader();
-  statusEl.textContent = 'Searching…';
-  requestAnimationFrame(loop);
+  setLoader(describeCameraError(err), { retry: true });
+  // If the browser later flips the permission to "granted", carry on by itself.
+  if (err?.kind === 'blocked' && !permissionWatched) {
+    permissionWatched = true;
+    watchCameraPermission(() => { if (document.body.dataset.view === 'practice') bootPractice(); });
+  }
 }
 
-function setLoader(t) { loaderEl.textContent = t; loaderEl.classList.add('visible'); }
-function hideLoader() { loaderEl.classList.remove('visible'); }
-
-async function startWebcam() {
-  setLoader('Requesting camera…');
-  const stream = await navigator.mediaDevices.getUserMedia({
-    video: { width: { ideal: 1280 }, height: { ideal: 720 }, facingMode: 'user' },
-    audio: false,
-  });
-  practiceVideo.srcObject = stream;
-  await new Promise(res => practiceVideo.addEventListener('loadedmetadata', res, { once: true }));
-  await practiceVideo.play();
-  practiceCanvas.width  = practiceVideo.videoWidth;
-  practiceCanvas.height = practiceVideo.videoHeight;
+function setLoader(msg, { retry = false, tick = false } = {}) {
+  clearInterval(loaderTimer);
+  loaderEl.classList.add('visible');
+  loaderEl.innerHTML =
+    `<div class="loader-pulse${retry ? ' off' : ''}"></div>` +
+    `<span class="loader-msg"></span>` +
+    (retry ? '<button type="button" class="btn btn-primary loader-retry">Try again</button>' : '');
+  const span = loaderEl.querySelector('.loader-msg');
+  span.textContent = msg;
+  if (retry) loaderEl.querySelector('.loader-retry').addEventListener('click', () => bootPractice());
+  if (tick) {
+    const t0 = Date.now();
+    loaderTimer = setInterval(() => { span.textContent = `${msg} ${Math.round((Date.now() - t0) / 1000)}s`; }, 1000);
+  }
 }
+function hideLoader() { clearInterval(loaderTimer); loaderEl.classList.remove('visible'); }
 
 function loop() {
   const hl = getLoadedLandmarker();

@@ -187,80 +187,55 @@ body[data-view="practice"] .nav { background: rgba(6, 1, 15, 0.6); }
   justify-content: center;
 }
 .hero-glyph {
-  width: 380px;
-  height: 420px;
+  width: 460px;
+  height: 400px;
   max-width: 100%;
-  color: var(--neon-cyan);
-  filter: drop-shadow(0 0 28px rgba(0, 240, 255, 0.4));
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: opacity 400ms ease;
-}
-.hero-glyph .mudra-svg { height: 100%; display: flex; align-items: center; }
-.hero-glyph .mudra-svg svg { height: 100%; width: auto; }
-.hero-glyph img.mudra-photo {
-  max-height: 100%;
-  max-width: 100%;
-  object-fit: contain;
-  filter: drop-shadow(0 0 32px rgba(0, 240, 255, 0.45));
-}
-
-/* Holographic wireframe hero */
-.hero-glyph-3d {
   position: relative;
-  width: 420px;
-  height: 460px;
-  max-width: 100%;
-  filter: none;
-  border-radius: 24px;
-  overflow: hidden;
-  background:
-    radial-gradient(circle at 50% 48%, rgba(0,240,255,0.12), transparent 62%),
-    #04020c;
-  box-shadow:
-    0 0 50px rgba(0, 240, 255, 0.18),
-    inset 0 0 40px rgba(0, 240, 255, 0.08);
 }
-.hero-wire-stage {
+/* Hero: real photographs on parchment, cross-fading (see animateHero). */
+.hero-plate {
   position: absolute;
-  inset: 0;
-}
-.hero-wire-label {
-  position: absolute;
-  left: 0; right: 0; bottom: 18px;
-  text-align: center;
-  pointer-events: none;
+  top: 0; left: 0;
+  width: 100%;
+  height: calc(100% - 62px);
+  object-fit: contain;
+  border-radius: 14px;
+  box-shadow: 0 22px 60px rgba(0, 0, 0, 0.55);
   opacity: 0;
-  transform: translateY(8px);
-  transition: opacity 500ms ease, transform 500ms ease;
+  transition: opacity 900ms ease;
 }
-.hero-wire-label.show {
-  opacity: 1;
-  transform: translateY(0);
+.hero-plate.on { opacity: 1; }
+.hero-plate-label {
+  position: absolute;
+  left: 0; right: 0; bottom: 0;
+  text-align: center;
+  opacity: 0;
+  transform: translateY(6px);
+  transition: opacity 600ms ease, transform 600ms ease;
 }
-.hero-wire-sa {
+.hero-plate-label.show { opacity: 1; transform: none; }
+.hero-plate-sa {
   display: block;
   font-family: var(--deva);
   font-size: 26px;
-  color: var(--text);
-  text-shadow: 0 0 16px rgba(0, 240, 255, 0.4);
   line-height: 1.1;
+  color: var(--text);
 }
-.hero-wire-iast {
+.hero-plate-iast {
   display: block;
   font-family: var(--serif);
   font-style: italic;
   font-size: 16px;
-  color: var(--neon-cyan);
+  color: var(--text-dim);
   letter-spacing: 0.02em;
 }
+
 .hero-decor::before {
   content: '';
   position: absolute;
   inset: 50% auto auto 50%;
   width: 360px; height: 360px;
-  background: radial-gradient(circle, rgba(0,240,255,0.18), transparent 70%);
+  background: radial-gradient(circle, rgba(255,206,92,0.14), transparent 70%);
   transform: translate(-50%, -50%);
   border-radius: 50%;
   z-index: -1;
@@ -828,6 +803,9 @@ kbd {
   letter-spacing: 0.06em;
 }
 .loader.visible { display: flex; }
+.loader .loader-msg { max-width: 440px; padding: 0 24px; text-align: center; line-height: 1.6; letter-spacing: 0.02em; }
+.loader .loader-pulse.off { animation: none; opacity: 0.35; }
+.loader .loader-retry { margin-top: 4px; }
 .loader-pulse {
   width: 48px; height: 48px;
   border-radius: 50%;
@@ -1355,8 +1333,8 @@ body[data-view="capture"]    { overflow-y: auto; min-height: 100vh; }
     gap: 24px;
     min-height: auto;
   }
-  .hero-decor { height: 280px; order: -1; }
-  .hero-glyph { width: 240px; }
+  .hero-decor { height: 300px; order: -1; }
+  .hero-glyph { width: 100%; max-width: 340px; height: 260px; }
 
   .nav { padding: 12px 20px; }
   .brand-text { font-size: 16px; }
