@@ -1,5 +1,5 @@
 {
-  "name": "mudra-vision",
+  "name": "mudra-companion",
   "private": true,
   "type": "module",
   "description": "Bharatanatyam hasta (mudra) learning app with live camera recognition.",

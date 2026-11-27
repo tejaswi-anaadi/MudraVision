@@ -1,11 +1,11 @@
-# Mudra Vision
+# Mudra Companion
 
 A self-paced introduction to the **hastas** of Bharatanāṭyam — and a
 live camera that recognises them as you form them. Runs entirely in the
 browser; nothing is uploaded.
 
 ## Live site
-<https://tejaswi-anaadi.github.io/MudraVision/>
+<https://mudracompanion.github.io/>
 
 ## What's in it
 - **Learn** — 69 mudras across four families (28 Asamyukta · 24 Samyukta ·

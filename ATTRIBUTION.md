@@ -1,7 +1,7 @@
 # Image Attribution
 
 The mudra reference photographs in `images/` come from two sources, both freely
-licensed. If you redistribute Mudra Vision, please keep this attribution file
+licensed. If you redistribute Mudra Companion, please keep this attribution file
 and the licence terms below.
 
 ## 1. Jisha Raj R — Bharatanatyam Mudra Dataset
@@ -122,7 +122,7 @@ and <https://commons.wikimedia.org/wiki/File:%E0%B4%B9%E0%B4%B8%E0%B5%8D%E0%B4%A
 
 Changes made: resized to 600 px wide; format converted from JPEG to PNG.
 
-Mudra Vision applies these images at runtime under CC BY-SA 3.0 (we choose
+Mudra Companion applies these images at runtime under CC BY-SA 3.0 (we choose
 that licence from the multi-licence offer); if you redistribute, you may also
 choose any of the other licences listed by the upstream author.
 

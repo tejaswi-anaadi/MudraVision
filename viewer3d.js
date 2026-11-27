@@ -290,7 +290,7 @@ export class PhotoTurntable {
     for (let i = 0; i < this.urls.length; i++) {
       const d = document.createElement('span');
       d.className = 'turntable-dot' + (i === 0 ? ' active' : '');
-      d.style.cssText = 'width:8px;height:8px;border-radius:50%;background:rgba(0,240,255,0.2);transition:200ms;';
+      d.style.cssText = 'width:8px;height:8px;border-radius:50%;background:rgba(217,180,90,0.25);transition:200ms;';
       d.dataset.idx = String(i);
       d.addEventListener('click', () => this.setIndex(i));
       dots.appendChild(d);
@@ -299,7 +299,7 @@ export class PhotoTurntable {
     this.container.appendChild(dots);
     const lbl = document.createElement('div');
     lbl.className = 'turntable-label';
-    lbl.style.cssText = 'font-size:11px;letter-spacing:0.18em;text-transform:uppercase;color:rgba(238,243,255,0.55);';
+    lbl.style.cssText = 'font-size:11px;letter-spacing:0.14em;text-transform:uppercase;color:rgba(245,234,214,0.55);';
     lbl.textContent = this.labels[0] || `1 / ${this.urls.length}`;
     this.container.appendChild(lbl);
     this._lbl = lbl;
@@ -313,7 +313,7 @@ export class PhotoTurntable {
     this._lbl.textContent = this.labels[clamped] || `${clamped + 1} / ${this.urls.length}`;
     for (let k = 0; k < this._dots.length; k++) {
       this._dots[k].style.background = (k === clamped)
-        ? 'var(--neon-cyan, #00f0ff)' : 'rgba(0,240,255,0.20)';
+        ? 'var(--gold, #d9b45a)' : 'rgba(217,180,90,0.25)';
     }
   }
   _wire() {

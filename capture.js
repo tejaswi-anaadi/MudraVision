@@ -465,8 +465,9 @@ function showError(text) {
 
 function drawSkeleton(lm, locking) {
   const W = canvas.width, H = canvas.height;
-  const cyan = '#00f0ff', mag = '#ff00e0';
-  const glow = locking ? '#39ff7d' : cyan;
+  // Site palette: gold bones, saffron tips, peacock when the angle locks.
+  const cyan = '#d9b45a', mag = '#e8933a';
+  const glow = locking ? '#2a9d8f' : cyan;
   for (const [a, b] of CONNECTIONS) {
     ctx.save();
     ctx.strokeStyle = glow; ctx.shadowColor = glow;

@@ -27,10 +27,12 @@ const LOCK_FRAMES_NEEDED = 6;
 const CANDIDATE_FLOOR = 0.62;
 const HINT_FLOOR = 0.70;
 const LOST_HAND_RESET_FRAMES = 6;
+// Live hand overlay — the site palette: gold bones, ivory cores, saffron
+// fingertips; the frame turns peacock green when a mudra is locked.
 const NEON = {
-  bone: '#00f0ff', boneCore: '#caf6ff',
-  tip: '#ff00e0',  joint: '#00f0ff',
-  lockGlow: '#39ff7d', searchGlow: '#00f0ff',
+  bone: '#d9b45a', boneCore: '#f5ead6',
+  tip: '#e8933a',  joint: '#d9b45a',
+  lockGlow: '#2a9d8f', searchGlow: '#d9b45a',
 };
 
 // ============================================================
@@ -623,8 +625,8 @@ function updateUI(result) {
   const topScore = result.top ? result.top.score : 0;
   confEl.style.width = Math.round(topScore * 100) + '%';
   confEl.style.background = result.lock
-    ? 'linear-gradient(90deg, #39ff7d, #00f0ff)'
-    : 'linear-gradient(90deg, #00f0ff, #ff00e0)';
+    ? 'linear-gradient(90deg, #2a9d8f, #7fd3c6)'
+    : 'linear-gradient(90deg, #d9b45a, #e8933a)';
 
   const consensus = bufferConsensus();
   if (consensus !== `${currentLockSource}:${currentLockId}`) {

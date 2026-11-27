@@ -30,6 +30,7 @@ export const TAKE = {
 // ============================================================
 // IndexedDB (own database — does not touch the captured-mudra store)
 // ============================================================
+// Storage keys keep the pre-rebrand name so existing recordings survive.
 const DB_NAME = 'mudravision-dataset';
 const STORE = 'samples';
 let _db = null;
@@ -108,7 +109,7 @@ export function summarize(samples, goal = TAKE.goalTakes) {
 export function buildDatasetJSON(samples) {
   return {
     schema: SCHEMA_VERSION,
-    app: 'mudra-vision',
+    app: 'mudra-companion',
     createdAt: new Date().toISOString(),
     samples: samples.map(({ id, ...rest }) => rest),
   };
