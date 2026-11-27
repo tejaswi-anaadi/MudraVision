@@ -51,7 +51,7 @@ export const MUDRAS = [
     constraints: [
       { type:'curl', finger:'index',  state:'extended', weight:1 },
       { type:'curl', finger:'middle', state:'extended', weight:1 },
-      { type:'curl', finger:'ring',   state:'curled',   weight:1.2 },
+      { type:'curl', finger:'ring',   state:['half','curled'], weight:1.2 },
       { type:'curl', finger:'pinky',  state:'extended', weight:1 },
       { type:'curl', finger:'thumb',  state:['curled','half'], weight:0.5 },
     ],
@@ -142,7 +142,7 @@ export const MUDRAS = [
     hands: 1, recognize: true, reliable: false,
     constraints: [
       { type:'curl', finger:'index',  state:'half', weight:1.2 },
-      { type:'curl', finger:'middle', state:'extended', weight:1 },
+      { type:'curl', finger:'middle', state:['extended','half'], weight:0.8 },
       { type:'curl', finger:'ring',   state:'half', weight:1.2 },
       { type:'curl', finger:'pinky',  state:'extended', weight:1 },
       { type:'curl', finger:'thumb',  state:['half','curled'], weight:0.5 },
@@ -197,7 +197,7 @@ export const MUDRAS = [
       { type:'curl', finger:'ring',   state:'curled', weight:1 },
       { type:'curl', finger:'pinky',  state:'curled', weight:1 },
       // Thumb is held out (still effectively a Śikhara base).
-      { type:'curl', finger:'thumb',  state:['extended','half'], weight:0.8 },
+      { type:'curl', finger:'thumb',  state:['extended','half','curled'], weight:0.25 },
     ],
   },
   {
@@ -208,7 +208,7 @@ export const MUDRAS = [
     hands: 1, recognize: true, reliable: false,
     constraints: [
       { type:'touch', fingers:['thumb','index'],  threshold:0.28, weight:1.1 },
-      { type:'touch', fingers:['thumb','middle'], threshold:0.30, weight:1.1 },
+      { type:'touch', fingers:['thumb','middle'], threshold:0.45, weight:0.6 },
       { type:'curl', finger:'ring',  state:['half','curled'], weight:0.7 },
       { type:'curl', finger:'pinky', state:['half','curled'], weight:0.7 },
     ],
@@ -270,12 +270,25 @@ export const MUDRAS = [
     usage: "Serpent, sandal-paste, sprinkling water, elephant's ear, slow-moving.",
     hands: 1, recognize: true, reliable: false,
     constraints: [
-      { type:'curl', finger:'index',  state:'half', weight:1 },
-      { type:'curl', finger:'middle', state:'half', weight:1 },
-      { type:'curl', finger:'ring',   state:'half', weight:1 },
-      { type:'curl', finger:'pinky',  state:'half', weight:1 },
-      { type:'curl', finger:'thumb',  state:['half','curled'], weight:0.6 },
-      { type:'spread', max:0.13, weight:1 },
+      // The hollow-bowl shape is a property of the WHOLE hand: the four
+      // fingers share a gentle bend (mean curl ~0.2-0.6). Individually they
+      // may sit anywhere from nearly straight to half-bent, so per-finger
+      // 'half' bands were rejecting genuine photos. A flat hand (Patāka,
+      // mean ~0) and a fist (Muṣṭi, mean ~0.9) both fall outside the band.
+      { type:'custom', name:'cupped', weight:3,
+        test: (lm, st) => {
+          const c = st.curlScore;
+          const mean = (c.index + c.middle + c.ring + c.pinky) / 4;
+          return Math.min(Math.max(0, Math.min(1, (mean - 0.08) / 0.10)),
+                          Math.max(0, Math.min(1, (0.70 - mean) / 0.12)));
+        } },
+      { type:'curl', finger:'index',  state:['extended','half'], weight:0.5 },
+      { type:'curl', finger:'middle', state:['extended','half'], weight:0.5 },
+      { type:'curl', finger:'ring',   state:['extended','half'], weight:0.5 },
+      { type:'curl', finger:'pinky',  state:['extended','half'], weight:0.5 },
+      { type:'curl', finger:'thumb',  state:['extended','half','curled'], weight:0.2 },
+      // Fingers held together (not fanned like Padmakośa), with some slack.
+      { type:'spread', max:0.32, soft:0.12, weight:1 },
     ],
   },
   {
@@ -339,7 +352,7 @@ export const MUDRAS = [
       // The WIDE fan is the defining feature — heavily weighted and with a
       // high minimum, so an ordinary open hand (Pataka, Ardhacandra) whose
       // fingers are held together can't accumulate enough to win.
-      { type:'spread', min:0.30, weight:3.2 },
+      { type:'spread', min:0.45, soft:0.12, weight:3.2 },
       { type:'thumbIndexAngle', min:45, weight:0.6 },
       // EVERY finger must be genuinely straight. Without this, a hand with
       // one bent finger (Arāla) or a cupped hand still scored high from the
@@ -433,6 +446,8 @@ export const MUDRAS = [
     names: { sa: 'संदंश', iast: 'Saṃdaṃśa', en: 'Pincers' },
     howto: 'Padmakośa held with the thumb close to the other four fingertips (pinching pose). Classically the fingers open and close — we recognise the closed pinch shape.',
     usage: 'Sacrifice, a worm, fear, generosity, plucking thorns, doubt.',
+    // Real component photographs shown on this mudra's card (no photo of the combination exists).
+    parts: [{ hand: 'Begins as', id: 'padmakosha' }],
     hands: 1, recognize: true, reliable: false,
     constraints: [
       // Same cup shape as Padmakośa but the thumb has come in close to
@@ -454,11 +469,19 @@ export const MUDRAS = [
     usage: "Water lily, eating, the seal, navel, plantain flower, Cupid's arrow, offering.",
     hands: 1, recognize: true, reliable: true,
     constraints: [
-      { type:'clustered', weight:1.6 },
-      { type:'curl', finger:'index',  state:['half','curled'], weight:0.7 },
-      { type:'curl', finger:'middle', state:['half','curled'], weight:0.7 },
-      { type:'curl', finger:'ring',   state:['half','curled'], weight:0.7 },
-      { type:'curl', finger:'pinky',  state:['half','curled'], weight:0.7 },
+      { type:'clustered', weight:3 },
+      // A bud has bent-forward fingers meeting the thumb; a clenched fist
+      // (Muṣṭi, Kapittha) also brings the tips together but is far more curled.
+      { type:'custom', name:'notFist', weight:1.5,
+        test: (lm, st) => {
+          const c = st.curlScore;
+          const mean = (c.index + c.middle + c.ring + c.pinky) / 4;
+          return Math.max(0, Math.min(1, (0.80 - mean) / 0.30));
+        } },
+      { type:'curl', finger:'index',  state:['half','curled'], weight:0.35 },
+      { type:'curl', finger:'middle', state:['half','curled'], weight:0.35 },
+      { type:'curl', finger:'ring',   state:['half','curled'], weight:0.35 },
+      { type:'curl', finger:'pinky',  state:['half','curled'], weight:0.35 },
     ],
   },
   {
@@ -469,16 +492,17 @@ export const MUDRAS = [
     hands: 1, recognize: true, reliable: false,
     constraints: [
       // Thumb, middle, ring, pinky cluster at a point — index stays free.
-      { type:'touch', fingers:['thumb','middle'], threshold:0.28, weight:1 },
-      { type:'touch', fingers:['thumb','ring'],   threshold:0.30, weight:1 },
-      { type:'touch', fingers:['thumb','pinky'],  threshold:0.34, weight:0.7 },
-      // Index is held away — half-bent or extended, but NOT at the cluster.
-      { type:'curl', finger:'index', state:['half','extended'], weight:0.9 },
+      { type:'touch', fingers:['thumb','middle'], threshold:0.45, weight:1 },
+      { type:'touch', fingers:['thumb','ring'],   threshold:0.70, weight:0.8 },
+      { type:'touch', fingers:['thumb','pinky'],  threshold:0.75, weight:0.5 },
+      // Index is held away — half-bent, clearly less curled than the other
+      // three, but NOT at the cluster.
+      { type:'curl', finger:'index', state:['half','extended'], weight:1.2 },
       { type:'notTouch', fingers:['thumb','index'], threshold:0.30, weight:0.9 },
       // Other three fingers are bent (in the cluster).
-      { type:'curl', finger:'middle', state:['half','curled'], weight:0.6 },
-      { type:'curl', finger:'ring',   state:['half','curled'], weight:0.6 },
-      { type:'curl', finger:'pinky',  state:['half','curled'], weight:0.6 },
+      { type:'curl', finger:'middle', state:'curled', weight:0.9 },
+      { type:'curl', finger:'ring',   state:'curled', weight:0.9 },
+      { type:'curl', finger:'pinky',  state:'curled', weight:0.9 },
     ],
   },
   {
@@ -570,6 +594,8 @@ export const MUDRAS = [
     names: { sa: 'दोल', iast: 'Dola', en: 'Swing' },
     howto: 'Both Patāka hands hanging down loosely at the sides.',
     usage: 'Beginning a dance, indecision, sorrow, swinging, casualness.',
+    // Real component photographs shown on this mudra's card (no photo of the combination exists).
+    parts: [{ hand: 'Both', id: 'pataka' }],
     hands: 2, recognize: true, reliable: false,
     components: ['pataka', 'pataka'],
     twoHand: [
@@ -595,6 +621,8 @@ export const MUDRAS = [
     names: { sa: 'उत्सङ्ग', iast: 'Utsaṅga', en: 'Embrace' },
     howto: 'Both Arāla hands crossed at the wrists in front of the chest, palms inward.',
     usage: 'Embrace, modesty, hugging a child, feeling of love.',
+    // Real component photographs shown on this mudra's card (no photo of the combination exists).
+    parts: [{ hand: 'Both', id: 'arala' }],
     hands: 2, recognize: true, reliable: false,
     components: ['arala', 'arala'],
     twoHand: [
@@ -791,6 +819,8 @@ export const MUDRAS = [
     names: { sa: 'अवहित्थ', iast: 'Avahittha', en: 'Dissimulation' },
     howto: 'Two Śukatuṇḍa hands gently turned downward toward the chest.',
     usage: 'Pretence, concealing a feeling, slenderness, weakness, a sigh.',
+    // Real component photographs shown on this mudra's card (no photo of the combination exists).
+    parts: [{ hand: 'Both', id: 'shukatunda' }],
     hands: 2, recognize: true, reliable: false,
     components: ['shukatunda', 'shukatunda'],
     twoHand: [
@@ -806,6 +836,8 @@ export const MUDRAS = [
     names: { sa: 'ब्रह्मा', iast: 'Brahmā', en: 'The Creator' },
     howto: 'Left hand in Catura, right hand in Haṃsāsya.',
     usage: 'Lord Brahmā, the creator god; the four Vedas.',
+    // Real component photographs shown on this mudra's card (no photo of the combination exists).
+    parts: [{ hand: 'Left', id: 'chatura' }, { hand: 'Right', id: 'hamsasya' }],
     hands: 2, recognize: true, reliable: false,
     components: ['chatura', 'hamsasya'],
     twoHand: [
@@ -817,6 +849,8 @@ export const MUDRAS = [
     names: { sa: 'विष्णु', iast: 'Viṣṇu', en: 'The Preserver' },
     howto: 'Both hands in Tripatāka.',
     usage: 'Lord Viṣṇu, the preserver, holding the conch, discus, mace, and lotus.',
+    // Real component photographs shown on this mudra's card (no photo of the combination exists).
+    parts: [{ hand: 'Both', id: 'tripataka' }],
     hands: 2, recognize: true, reliable: false,
     components: ['tripataka', 'tripataka'],
     twoHand: [
@@ -829,6 +863,8 @@ export const MUDRAS = [
     names: { sa: 'शिव', iast: 'Śiva', en: 'The Auspicious' },
     howto: 'Left hand in Mṛgaśīrṣa, right hand in Tripatāka.',
     usage: 'Lord Śiva — the auspicious one, lord of yoga and destruction.',
+    // Real component photographs shown on this mudra's card (no photo of the combination exists).
+    parts: [{ hand: 'Left', id: 'mrigashirsha' }, { hand: 'Right', id: 'tripataka' }],
     hands: 2, recognize: true, reliable: false,
     components: ['mrigashirsha', 'tripataka'],
     twoHand: [
@@ -840,6 +876,8 @@ export const MUDRAS = [
     names: { sa: 'गणेश', iast: 'Gaṇeśa', en: 'The Elephant-faced' },
     howto: 'Both hands in Kapittha, held at the temples to suggest tusks.',
     usage: 'Lord Gaṇeśa, the remover of obstacles, son of Śiva and Pārvatī.',
+    // Real component photographs shown on this mudra's card (no photo of the combination exists).
+    parts: [{ hand: 'Both', id: 'kapittha' }],
     hands: 2, recognize: true, reliable: false,
     components: ['kapittha', 'kapittha'],
     twoHand: [
@@ -853,6 +891,8 @@ export const MUDRAS = [
     usage: 'Goddess Lakṣmī, consort of Viṣṇu, bestower of prosperity.',
     // Visually identical to Gaṇeśa — disabled in classifier to avoid lock-in
     // ambiguity. Still shown in the catalog.
+    // Real component photographs shown on this mudra's card (no photo of the combination exists).
+    parts: [{ hand: 'Both', id: 'kapittha' }],
     hands: 2, recognize: false, reliable: false,
   },
   {
@@ -860,6 +900,8 @@ export const MUDRAS = [
     names: { sa: 'सरस्वती', iast: 'Sarasvatī', en: 'The Goddess of Learning' },
     howto: 'Both hands in Kaṭakāmukha — suggesting the vīṇā.',
     usage: 'Goddess Sarasvatī, presiding deity of speech, music, and the arts.',
+    // Real component photographs shown on this mudra's card (no photo of the combination exists).
+    parts: [{ hand: 'Both', id: 'katakamukha' }],
     hands: 2, recognize: true, reliable: false,
     components: ['katakamukha', 'katakamukha'],
     twoHand: [
@@ -871,6 +913,8 @@ export const MUDRAS = [
     names: { sa: 'दुर्गा', iast: 'Durgā', en: 'The Invincible Goddess' },
     howto: 'Left hand in Tripatāka, right hand in Ardhacandra.',
     usage: 'Goddess Durgā, slayer of the buffalo demon, bearer of weapons.',
+    // Real component photographs shown on this mudra's card (no photo of the combination exists).
+    parts: [{ hand: 'Left', id: 'tripataka' }, { hand: 'Right', id: 'ardhachandra' }],
     hands: 2, recognize: true, reliable: false,
     components: ['tripataka', 'ardhachandra'],
     twoHand: [
@@ -909,6 +953,8 @@ export const MUDRAS = [
     names: { sa: 'नरसिंह', iast: 'Narasiṃha', en: 'The Man-Lion' },
     howto: 'Left hand in Siṃhamukha, right hand in Tripatāka.',
     usage: "Viṣṇu's fourth avatāra — the lion-man who slew the demon Hiraṇyakaśipu.",
+    // Real component photographs shown on this mudra's card (no photo of the combination exists).
+    parts: [{ hand: 'Left', id: 'simhamukha' }, { hand: 'Right', id: 'tripataka' }],
     hands: 2, recognize: true, reliable: false,
     components: ['simhamukha', 'tripataka'],
     twoHand: [
@@ -920,6 +966,8 @@ export const MUDRAS = [
     names: { sa: 'वामन', iast: 'Vāmana', en: 'The Dwarf' },
     howto: 'Both Muṣṭi hands held close to the body, low.',
     usage: "Viṣṇu's fifth avatāra — the dwarf who reclaimed the three worlds from King Bali in three strides.",
+    // Real component photographs shown on this mudra's card (no photo of the combination exists).
+    parts: [{ hand: 'Both', id: 'mushti' }],
     hands: 2, recognize: true, reliable: false,
     components: ['mushti', 'mushti'],
     twoHand: [
@@ -931,6 +979,8 @@ export const MUDRAS = [
     names: { sa: 'परशुराम', iast: 'Paraśurāma', en: 'Rāma with the axe' },
     howto: 'Left hand in Ardhacandra, right hand in Muṣṭi as if gripping an axe.',
     usage: "Viṣṇu's sixth avatāra — the brahmin warrior wielding the axe.",
+    // Real component photographs shown on this mudra's card (no photo of the combination exists).
+    parts: [{ hand: 'Left', id: 'ardhachandra' }, { hand: 'Right', id: 'mushti' }],
     hands: 2, recognize: true, reliable: false,
     components: ['ardhachandra', 'mushti'],
     twoHand: [
@@ -942,6 +992,8 @@ export const MUDRAS = [
     names: { sa: 'राम', iast: 'Rāma', en: 'Lord Rāma' },
     howto: 'Left hand in Kapittha, right hand in Śikhara — drawing the bow.',
     usage: "Viṣṇu's seventh avatāra — Rāma of Ayodhya, the ideal king.",
+    // Real component photographs shown on this mudra's card (no photo of the combination exists).
+    parts: [{ hand: 'Left', id: 'kapittha' }, { hand: 'Right', id: 'shikhara' }],
     hands: 2, recognize: true, reliable: false,
     components: ['kapittha', 'shikhara'],
     twoHand: [
@@ -953,6 +1005,8 @@ export const MUDRAS = [
     names: { sa: 'बलराम', iast: 'Balarāma', en: "Krishna's brother" },
     howto: 'Left hand in Patāka, right hand in Muṣṭi — gripping the plough.',
     usage: "Viṣṇu's eighth avatāra (in some lists) — elder brother of Kṛṣṇa, wielder of the plough.",
+    // Real component photographs shown on this mudra's card (no photo of the combination exists).
+    parts: [{ hand: 'Left', id: 'pataka' }, { hand: 'Right', id: 'mushti' }],
     hands: 2, recognize: true, reliable: false,
     components: ['pataka', 'mushti'],
     twoHand: [
@@ -964,6 +1018,8 @@ export const MUDRAS = [
     names: { sa: 'कृष्ण', iast: 'Kṛṣṇa', en: 'Lord Krishna' },
     howto: 'Both hands in Mṛgaśīrṣa held in front of the lips — the flute pose.',
     usage: "Viṣṇu's ninth avatāra — Kṛṣṇa playing the flute, the divine cowherd.",
+    // Real component photographs shown on this mudra's card (no photo of the combination exists).
+    parts: [{ hand: 'Both', id: 'mrigashirsha' }],
     hands: 2, recognize: true, reliable: false,
     components: ['mrigashirsha', 'mrigashirsha'],
     twoHand: [
@@ -976,6 +1032,8 @@ export const MUDRAS = [
     names: { sa: 'कल्कि', iast: 'Kalki', en: 'The Future Avatāra' },
     howto: 'Right hand in Tripatāka, left hand in Patāka — pointing toward the future.',
     usage: "Viṣṇu's tenth and prophesied avatāra — the rider on the white horse, restorer of dharma.",
+    // Real component photographs shown on this mudra's card (no photo of the combination exists).
+    parts: [{ hand: 'Left', id: 'pataka' }, { hand: 'Right', id: 'tripataka' }],
     hands: 2, recognize: true, reliable: false,
     components: ['tripataka', 'pataka'],
     twoHand: [

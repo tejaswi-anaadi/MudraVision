@@ -3,6 +3,7 @@
 // (don't use localStorage — these are too big). Wrap everything in a small
 // promise API.
 
+// Keeps the pre-rebrand name so saved progress and captures survive.
 const DB_NAME = 'mudravision';
 const DB_VERSION = 1;
 const STORE = 'mudras';

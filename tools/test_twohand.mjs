@@ -44,6 +44,7 @@ function rotate2D(lm, deg) {
 }
 
 function run(label, expectId, handA, handB) {
+  lastLabel = label;
   resetSmoothing(); tickFrame();
   const hands = preprocessHands([handA.lm, handB.lm],
     [[{ categoryName: handA.handed || 'Right' }], [{ categoryName: handB.handed || 'Left' }]]);
@@ -62,7 +63,11 @@ const pataka = loadImageLandmarks('pataka');
 if (!pataka) { console.error('need poses/pataka.json'); process.exit(1); }
 
 let pass = 0, fail = 0;
-const tally = (ok) => ok ? pass++ : fail++;
+// Known, documented failures: they don't fail the run, but a NEW failure does.
+const KNOWN_FAIL = new Set(['karkata']);
+const unexpected = [];
+let lastLabel = null;
+const tally = (ok) => { if (ok) pass++; else { fail++; if (!KNOWN_FAIL.has(lastLabel)) unexpected.push(lastLabel); } };
 
 // ANJALI — palms pressed together, both vertical: wrists close AND
 // fingertips close.
@@ -133,4 +138,5 @@ if (ardhachandra) {
   tally(run('garuda', 'garuda', { lm: a, handed: 'Right' }, { lm: b, handed: 'Left' }));
 }
 
-console.log(`\n${pass} pass · ${fail} fail`);
+console.log(`\n${pass} pass · ${fail} fail` + (KNOWN_FAIL.size ? `  (known: ${[...KNOWN_FAIL].join(', ')})` : ''));
+if (unexpected.length) { console.log(`✗ UNEXPECTED FAILURES: ${unexpected.join(', ')}`); process.exit(1); }

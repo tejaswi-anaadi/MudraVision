@@ -6,16 +6,18 @@
 
 import { CONNECTIONS, TIP_INDICES, FINGER_NAMES, tickFrame, resetSmoothing,
          normalizeLandmarks } from './landmarks.js';
-import { classify, preprocessHands, CLASSIFY } from './classifier.js';
+import { classify, preprocessHands, CLASSIFY, setModels } from './classifier.js';
 import { MUDRA_BY_ID, MUDRAS, CATEGORIES, MUDRAS_BY_CATEGORY } from './mudras.js';
-import { getSvg } from './svg.js';
 import { mudraArt, renderVisual, getAvailableTypes, pickBaseVisual,
          setScannedFront, clearScannedFront, viewFromBuiltin, viewFromCapture,
-         wireImageFallbacks, preloadSourcePhotos } from './art.js';
+         wireImageFallbacks, preloadSourcePhotos, setAvailablePoses,
+         hasPose } from './art.js';
 import * as store from './store.js';
 import * as knn from './knn.js';
 import * as capture from './capture.js';
 import { loadLandmarker, getLoadedLandmarker } from './mediapipe.js';
+import { initRecorder } from './recorder.js';
+import { openCamera, describeCameraError, watchCameraPermission } from './camera.js';
 
 // ============================================================
 // Tuning
@@ -25,11 +27,12 @@ const LOCK_FRAMES_NEEDED = 6;
 const CANDIDATE_FLOOR = 0.62;
 const HINT_FLOOR = 0.70;
 const LOST_HAND_RESET_FRAMES = 6;
-const HERO_CYCLE = ['pataka','alapadma','mukula','hamsasya','shikhara','mayura','suchi','ardhachandra'];
+// Live hand overlay — the site palette: gold bones, ivory cores, saffron
+// fingertips; the frame turns peacock green when a mudra is locked.
 const NEON = {
-  bone: '#00f0ff', boneCore: '#caf6ff',
-  tip: '#ff00e0',  joint: '#00f0ff',
-  lockGlow: '#39ff7d', searchGlow: '#00f0ff',
+  bone: '#d9b45a', boneCore: '#f5ead6',
+  tip: '#e8933a',  joint: '#d9b45a',
+  lockGlow: '#2a9d8f', searchGlow: '#d9b45a',
 };
 
 // ============================================================
@@ -73,8 +76,24 @@ function viewForId(id, source) {
 // ============================================================
 // Boot
 // ============================================================
+// Learned recognition models (trained on the Bharatanatyam Mudra Dataset by
+// tools/train_model.py). Small JSON; if they fail to load, the rule engine
+// still works on its own.
+function loadModels() {
+  const get = (n) => fetch(`models/${n}.json`).then(r => (r.ok ? r.json() : null)).catch(() => null);
+  return Promise.all([get('single'), get('two')])
+    .then(([single, two]) => setModels({ single, two }));
+}
+
 (async function bootstrap() {
+  loadModels();
   await loadCaptures();
+  // Build the in-memory set of mudras that have a pose file (built by
+  // tools/extract_poses.py from real photos) so the renderer can show
+  // the 3D wireframe option when one is available.
+  Promise.all(['poses/_index.json', 'poses/ref/_index.json'].map(u =>
+    fetch(u).then(r => (r.ok ? r.json() : [])).catch(() => [])))
+    .then(([a, b]) => setAvailablePoses([...new Set([...a, ...b])]));
   capture.init && capture.init();
   buildCatalog();
   populateUpgradeDropdown();
@@ -83,8 +102,7 @@ function viewForId(id, source) {
   applyHashView();
   window.addEventListener('hashchange', applyHashView);
   // After first paint, prefetch every source photo in the background so
-  // the Practice card paints instantly when a mudra locks (instead of
-  // hitting a fresh network fetch on the first detection).
+  // the Practice card paints instantly when a mudra locks.
   if ('requestIdleCallback' in window) {
     requestIdleCallback(preloadSourcePhotos, { timeout: 1500 });
   } else {
@@ -183,27 +201,49 @@ function cardHtml(view) {
     </article>`;
 }
 
-// Cycle hero glyph.
+// Hero: a slow cross-fade through real photographs of hastas on parchment.
+const HERO_PLATES = [
+  'pataka', 'matsya', 'mayura', 'kartariswastika', 'mukula', 'pushpaputa',
+  'shikhara', 'samputa', 'hamsasya', 'kilaka', 'tripataka', 'shankha',
+];
+
 function animateHero() {
-  const glyphHost = document.getElementById('hero-glyph');
-  if (!glyphHost) return;
-  let i = 0;
-  const render = () => {
-    const id = HERO_CYCLE[i % HERO_CYCLE.length];
-    const m = MUDRA_BY_ID[id];
-    if (!m) { i++; return; }
-    const view = viewFromBuiltin(m);
-    glyphHost.style.opacity = '0';
-    glyphHost.style.transition = 'opacity 400ms ease';
-    setTimeout(() => {
-      glyphHost.innerHTML = mudraArt(view);
-      wireImageFallbacks(glyphHost);
-      glyphHost.style.opacity = '1';
-    }, 400);
+  const host = document.getElementById('hero-glyph');
+  if (!host) return;
+  host.classList.add('hero-plates');
+  host.innerHTML =
+    '<img class="hero-plate on" alt=""><img class="hero-plate" alt="">' +
+    '<div class="hero-plate-label"></div>';
+  const imgs = [...host.querySelectorAll('img.hero-plate')];
+  const label = host.querySelector('.hero-plate-label');
+  let i = 0, front = 0;
+
+  const show = () => {
+    const m = MUDRA_BY_ID[HERO_PLATES[i % HERO_PLATES.length]];
     i++;
+    if (!m) return;
+    const base = pickBaseVisual(viewFromBuiltin(m));
+    if (base.type !== 'source') return;
+    const pre = new Image();                       // warm the cache first
+    pre.onload = () => {
+      const next = imgs[1 - front];
+      // Flip image and label together, only once the new plate has really loaded.
+      next.onload = () => {
+        next.classList.add('on');
+        imgs[front].classList.remove('on');
+        front = 1 - front;
+        label.classList.remove('show');
+        label.innerHTML = `<span class="hero-plate-sa">${m.names.sa}</span>` +
+                          `<span class="hero-plate-iast">${m.names.iast}</span>`;
+        void label.offsetWidth;
+        label.classList.add('show');
+      };
+      next.src = base.url;
+    };
+    pre.src = base.url;
   };
-  render();
-  setInterval(render, 3200);
+  show();
+  setInterval(show, 4200);
 }
 
 // ============================================================
@@ -382,28 +422,22 @@ let currentLockId = null;
 let currentLockSource = null;
 let cardTimer = null;
 let debugMode = false;
+let recorder = null;     // dataset recorder (R key / ● Record button)
 let modelLoaded = false;
 let domWired = false;
 let framesSinceHand = 0;
 
+// How long to wait for the hand-tracking model before telling the user (it is
+// ~10 MB from a CDN the first time).
+const MODEL_WAIT_MS = 60000;
+let loopRunning = false;
+let practiceBooting = null;
+let loaderTimer = null;
+let permissionWatched = false;
+
 async function enterPractice() {
-  if (!domWired) {
-    await initPractice();
-    return;
-  }
-  try {
-    if (!practiceVideo.srcObject) {
-      setLoader('Requesting camera…');
-      await startWebcam();
-      hideLoader();
-    } else {
-      await practiceVideo.play().catch(() => {});
-    }
-    if (modelLoaded) statusEl.textContent = 'Searching…';
-  } catch (err) {
-    setLoader('Camera access denied. Allow camera and reload, or go back to Learn.');
-    console.error(err);
-  }
+  if (!domWired) wirePracticeDom();
+  bootPractice();
 }
 
 function exitPractice() {
@@ -417,9 +451,10 @@ function exitPractice() {
   currentLockId = null;
   currentLockSource = null;
   hideCard();
+  if (recorder) recorder.cancel();
 }
 
-async function initPractice() {
+function wirePracticeDom() {
   practiceVideo = document.getElementById('webcam');
   practiceCanvas = document.getElementById('overlay');
   practiceCtx = practiceCanvas.getContext('2d');
@@ -430,6 +465,12 @@ async function initPractice() {
   debugEl  = document.getElementById('debug');
   loaderEl = document.getElementById('loader');
 
+  recorder = initRecorder({
+    stage: document.querySelector('#practice-view .stage'),
+    mudras: MUDRAS, categories: CATEGORIES,
+    notify: flashConfirmation,
+  });
+
   window.addEventListener('keydown', (e) => {
     if ((e.key === 'd' || e.key === 'D') && document.body.dataset.view === 'practice') {
       debugMode = !debugMode;
@@ -438,42 +479,90 @@ async function initPractice() {
   });
   window.addEventListener('pagehide', exitPractice);
   domWired = true;
+}
 
+// Bring Practice up: camera + hand model. Safe to call repeatedly (Try again,
+// permission granted later, re-entering the view); concurrent calls share one run.
+function bootPractice() {
+  if (practiceBooting) return practiceBooting;
+  practiceBooting = (async () => {
+    try {
+      // The model needs no camera, so download it NOW, alongside the permission
+      // prompt, instead of after it.
+      const modelReady = modelLoaded ? Promise.resolve() : loadHandModel();
+      modelReady.catch(() => {});                       // reported below
+
+      if (!practiceVideo.srcObject) {
+        setLoader('Waiting for camera permission — click Allow in your browser…');
+        await openCamera(practiceVideo);
+        if (document.body.dataset.view !== 'practice') { exitPractice(); return; }
+        practiceCanvas.width  = practiceVideo.videoWidth;
+        practiceCanvas.height = practiceVideo.videoHeight;
+      } else {
+        await practiceVideo.play().catch(() => {});
+      }
+      if (!modelLoaded) {
+        setLoader('Camera ready. Loading hand tracking (first time takes about 10 seconds)…', { tick: true });
+        await modelReady;
+      }
+      hideLoader();
+      statusEl.textContent = 'Searching…';
+      if (!loopRunning) { loopRunning = true; requestAnimationFrame(loop); }
+    } catch (err) {
+      showPracticeError(err);
+    } finally {
+      practiceBooting = null;
+    }
+  })();
+  return practiceBooting;
+}
+
+async function loadHandModel() {
+  let timer;
+  const timeout = new Promise((_, rej) => {
+    timer = setTimeout(() => rej(Object.assign(new Error('model-timeout'), { isModel: true })), MODEL_WAIT_MS);
+  });
   try {
-    await startWebcam();
-  } catch (err) {
-    setLoader('Camera access denied. Allow camera and reload, or go back to Learn.');
-    console.error(err);
-    return;
-  }
-  try {
-    await loadLandmarker({ numHands: 2 });
+    await Promise.race([loadLandmarker({ numHands: 2 }), timeout]);
     modelLoaded = true;
   } catch (err) {
-    setLoader('Failed to load hand model. Check your connection and reload.');
-    console.error(err);
+    err.isModel = true;
+    throw err;
+  } finally { clearTimeout(timer); }
+}
+
+function showPracticeError(err) {
+  console.error(err);
+  if (err?.isModel) {
+    setLoader(err.message === 'model-timeout'
+      ? 'Hand tracking is taking too long to load. Check your internet connection (it downloads about 10 MB the first time).'
+      : 'Hand tracking could not be loaded. Check your internet connection.', { retry: true });
     return;
   }
-  hideLoader();
-  statusEl.textContent = 'Searching…';
-  requestAnimationFrame(loop);
+  setLoader(describeCameraError(err), { retry: true });
+  // If the browser later flips the permission to "granted", carry on by itself.
+  if (err?.kind === 'blocked' && !permissionWatched) {
+    permissionWatched = true;
+    watchCameraPermission(() => { if (document.body.dataset.view === 'practice') bootPractice(); });
+  }
 }
 
-function setLoader(t) { loaderEl.textContent = t; loaderEl.classList.add('visible'); }
-function hideLoader() { loaderEl.classList.remove('visible'); }
-
-async function startWebcam() {
-  setLoader('Requesting camera…');
-  const stream = await navigator.mediaDevices.getUserMedia({
-    video: { width: { ideal: 1280 }, height: { ideal: 720 }, facingMode: 'user' },
-    audio: false,
-  });
-  practiceVideo.srcObject = stream;
-  await new Promise(res => practiceVideo.addEventListener('loadedmetadata', res, { once: true }));
-  await practiceVideo.play();
-  practiceCanvas.width  = practiceVideo.videoWidth;
-  practiceCanvas.height = practiceVideo.videoHeight;
+function setLoader(msg, { retry = false, tick = false } = {}) {
+  clearInterval(loaderTimer);
+  loaderEl.classList.add('visible');
+  loaderEl.innerHTML =
+    `<div class="loader-pulse${retry ? ' off' : ''}"></div>` +
+    `<span class="loader-msg"></span>` +
+    (retry ? '<button type="button" class="btn btn-primary loader-retry">Try again</button>' : '');
+  const span = loaderEl.querySelector('.loader-msg');
+  span.textContent = msg;
+  if (retry) loaderEl.querySelector('.loader-retry').addEventListener('click', () => bootPractice());
+  if (tick) {
+    const t0 = Date.now();
+    loaderTimer = setInterval(() => { span.textContent = `${msg} ${Math.round((Date.now() - t0) / 1000)}s`; }, 1000);
+  }
 }
+function hideLoader() { clearInterval(loaderTimer); loaderEl.classList.remove('visible'); }
 
 function loop() {
   const hl = getLoadedLandmarker();
@@ -491,6 +580,9 @@ function processResults(results) {
   practiceCtx.clearRect(0, 0, practiceCanvas.width, practiceCanvas.height);
   tickFrame();
   const lmList = results.landmarks || [];
+  const aspect = practiceVideo.videoWidth && practiceVideo.videoHeight
+    ? practiceVideo.videoWidth / practiceVideo.videoHeight : 1;
+  if (recorder) recorder.feed(results, aspect, practiceVideo);   // every frame, hands or not
   if (lmList.length === 0) {
     framesSinceHand++;
     if (framesSinceHand === LOST_HAND_RESET_FRAMES) resetSmoothing();
@@ -500,10 +592,11 @@ function processResults(results) {
     return;
   }
   framesSinceHand = 0;
-  const hands = preprocessHands(lmList, results.handednesses || results.handedness);
+  const hands = preprocessHands(lmList, results.handednesses || results.handedness, aspect,
+                               results.worldLandmarks);
   const result = classify(hands);
   const drawMode = currentLockId ? 'lock' : 'search';
-  for (const h of hands) drawSkeleton(h.lm, drawMode);
+  for (const h of hands) drawSkeleton(h.norm || h.lm, drawMode);
 
   if (result.top && result.top.score >= CANDIDATE_FLOOR &&
       result.top.score - (result.second?.score || 0) >= CLASSIFY.margin * 0.5) {
@@ -531,9 +624,9 @@ function bufferConsensus() {
 function updateUI(result) {
   const topScore = result.top ? result.top.score : 0;
   confEl.style.width = Math.round(topScore * 100) + '%';
-  confEl.style.background = topScore >= CLASSIFY.threshold
-    ? 'linear-gradient(90deg, #39ff7d, #00f0ff)'
-    : 'linear-gradient(90deg, #00f0ff, #ff00e0)';
+  confEl.style.background = result.lock
+    ? 'linear-gradient(90deg, #2a9d8f, #7fd3c6)'
+    : 'linear-gradient(90deg, #d9b45a, #e8933a)';
 
   const consensus = bufferConsensus();
   if (consensus !== `${currentLockSource}:${currentLockId}`) {
@@ -580,22 +673,25 @@ function showCard(id, source) {
 
 function hideCard() {
   if (cardTimer) { clearTimeout(cardTimer); cardTimer = null; }
-  cardEl.classList.remove('visible');
+  // cardEl is bound in initPractice(); exitPractice() runs during boot before that.
+  if (cardEl) cardEl.classList.remove('visible');
 }
 
 // Practice card: shows the priority visual + a segmented toggle of the
-// available types (svg / source / scanned). Photos are rendered EAGER so
+// available types (photo / hands / scan / 3D). Photos are rendered EAGER so
 // they paint the moment the card appears, not after a fresh fetch.
+const TYPE_LABEL = { source: 'photo', parts: 'hands', scanned: 'scan', '3d': '3D', placeholder: '·' };
+
 function renderPracticeCard(view) {
   const base = pickBaseVisual(view);
   const types = getAvailableTypes(view);
   return `
     <div class="card-art" data-current-type="${base.type}">${renderVisual(view, base.type, { eager: true })}</div>
-    <div class="card-toggle">
+    ${types.length > 1 ? `<div class="card-toggle">
       ${types.map(t => `
-        <button class="toggle-btn${t === base.type ? ' active' : ''}" data-type="${t}">${t}</button>
+        <button class="toggle-btn${t === base.type ? ' active' : ''}" data-type="${t}">${TYPE_LABEL[t] || t}</button>
       `).join('')}
-    </div>
+    </div>` : ''}
     <div class="card-text">
       <div class="card-sa">${view.names.sa || '·'}</div>
       <div class="card-iast">${view.displayName}${view.is3D ? ' <span class="threed-badge">3D</span>' : ''}</div>
@@ -605,16 +701,57 @@ function renderPracticeCard(view) {
 }
 
 function wirePracticeToggle(root, view) {
+  // The 3D toggle is special — it instantiates a Three.js viewer instead
+  // of swapping an <img>/svg in.
+  let viewer3d = null;
+  const cleanup = () => {
+    if (viewer3d) { viewer3d.destroy(); viewer3d = null; }
+  };
   root.querySelectorAll('.toggle-btn').forEach(btn => {
-    btn.addEventListener('click', () => {
+    btn.addEventListener('click', async () => {
       const t = btn.dataset.type;
       const artEl = root.querySelector('.card-art');
-      artEl.innerHTML = renderVisual(view, t, { eager: true });
+      cleanup();
+      if (t === '3d') {
+        artEl.innerHTML = '<div class="card-3d"></div>';
+        const host = artEl.querySelector('.card-3d');
+        const { HandSkeleton3D, loadPose, loadRefPose } = await import('./viewer3d.js');
+        viewer3d = new HandSkeleton3D(host, { autoRotate: true });
+        const slug = view.builtinUpgrade || view.id;
+        const ref = view.kind === 'capture' ? null : await loadRefPose(slug);
+        if (ref?.hands?.length) {
+          viewer3d.setHands(ref.hands, { mirrorLeft: ref.hands.length === 1 });
+        } else {
+          const wl = await getWorldLandmarksFor(view, loadPose);
+          if (wl) viewer3d.setPose(wl.points, wl.handedness);
+        }
+      } else {
+        artEl.innerHTML = renderVisual(view, t, { eager: true });
+      }
       artEl.dataset.currentType = t;
       root.querySelectorAll('.toggle-btn').forEach(b => b.classList.toggle('active', b === btn));
       wireImageFallbacks(artEl);
     });
   });
+}
+
+// Resolve worldLandmarks for a mudra view, in priority order:
+//   1) the user's own capture (if any),
+//   2) the offline-extracted poses/{slug}.json.
+async function getWorldLandmarksFor(view, loadPose) {
+  if (view.kind === 'capture' && view.record?.angles?.[0]?.worldLandmarks?.length) {
+    return {
+      points: view.record.angles[0].worldLandmarks,
+      handedness: view.record.angles[0].handedness || 'Right',
+    };
+  }
+  const slug = view.builtinUpgrade || view.id;
+  const data = await loadPose(slug);
+  if (!data) return null;
+  return {
+    points: data.worldLandmarks,
+    handedness: data.handedness || 'Right',
+  };
 }
 
 // ---- Neon skeleton (unchanged) ----

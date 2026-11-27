@@ -8,6 +8,7 @@
 // Only when ALL three hold for HOLD_FRAMES is the photo + landmarks
 // captured; a big green tick animates, then the flow advances.
 
+import { openCamera as openCam, describeCameraError } from './camera.js';
 import { loadLandmarker, loadSegmenter, getLoadedSegmenter } from './mediapipe.js';
 import {
   normalizeLandmarks, CONNECTIONS, TIP_INDICES, handBBox,
@@ -110,7 +111,7 @@ export async function startSession({ name, builtinUpgrade = null, meta = null, o
   resetSmoothing();
 
   try { await openCamera(); }
-  catch (err) { showError('Camera access denied.'); console.error(err); onCancel(); return; }
+  catch (err) { showError(describeCameraError(err)); console.error(err); onCancel(); return; }
   try { landmarker = await loadLandmarker({ numHands: 1 }); }
   catch (err) { showError('Failed to load hand model.'); console.error(err); onCancel(); return; }
   // Load the segmenter in the background — captures will use it when ready,
@@ -132,13 +133,7 @@ export function abortSession() {
 // Camera
 // ============================================================
 async function openCamera() {
-  const stream = await navigator.mediaDevices.getUserMedia({
-    video: { width: { ideal: 1280 }, height: { ideal: 720 }, facingMode: 'user' },
-    audio: false,
-  });
-  video.srcObject = stream;
-  await new Promise(res => video.addEventListener('loadedmetadata', res, { once: true }));
-  await video.play();
+  await openCam(video);
   canvas.width = video.videoWidth;
   canvas.height = video.videoHeight;
 }
@@ -470,8 +465,9 @@ function showError(text) {
 
 function drawSkeleton(lm, locking) {
   const W = canvas.width, H = canvas.height;
-  const cyan = '#00f0ff', mag = '#ff00e0';
-  const glow = locking ? '#39ff7d' : cyan;
+  // Site palette: gold bones, saffron tips, peacock when the angle locks.
+  const cyan = '#d9b45a', mag = '#e8933a';
+  const glow = locking ? '#2a9d8f' : cyan;
   for (const [a, b] of CONNECTIONS) {
     ctx.save();
     ctx.strokeStyle = glow; ctx.shadowColor = glow;

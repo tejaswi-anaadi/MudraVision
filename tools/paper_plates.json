@@ -1,0 +1,146 @@
+{
+ "_comment": "Parchment plates. 'frame' = a Bharatanatyam Mudra Dataset frame (Jisha Raj R, CC BY-SA 4.0) by dataset path; 'path'+dark = the dataset's representative photo kept in poses/src, used where no clean frame matched its pose.",
+ "plates": {
+  "alapadma": {
+   "frame": "Alapadmam(1)/Alapadmam_389.jpg"
+  },
+  "anjali": {
+   "frame": "Anjali(1)/Anjali_258.jpg"
+  },
+  "arala": {
+   "frame": "Aralam(1)/Aralam_264.jpg"
+  },
+  "ardhachandra": {
+   "frame": "Ardhachandran(1)/Ardhachandran_348.jpg"
+  },
+  "ardhapataka": {
+   "frame": "Ardhapathaka(1)/Ardhapathaka_254.jpg"
+  },
+  "bherunda": {
+   "frame": "Berunda(1)/Berunda  _4.jpg"
+  },
+  "bhramara": {
+   "path": "poses/src/bhramara.png",
+   "dark": true
+  },
+  "chakra": {
+   "frame": "Chakra(1)/Chakra _327.jpg"
+  },
+  "chandrakala": {
+   "frame": "Chandrakala(1)/Chandrakala_35.jpg"
+  },
+  "chatura": {
+   "frame": "Chaturam(1)/Chaturam_35.jpg"
+  },
+  "garuda": {
+   "frame": "Garuda(1)/Garuda  _269.jpg"
+  },
+  "hamsapaksha": {
+   "frame": "Hamsapaksha(1)/Hamsapaksha_405.jpg"
+  },
+  "hamsasya": {
+   "frame": "Hamsasyam(1)/Hamsasyam_403.jpg"
+  },
+  "kangula": {
+   "path": "poses/src/kangula.png",
+   "dark": true
+  },
+  "kapittha": {
+   "frame": "Kapith(1)/Kapith_249.jpg"
+  },
+  "kapota": {
+   "frame": "Kapotham(1)/Kapotham_279.jpg"
+  },
+  "karkata": {
+   "frame": "Karkatta(1)/Karkatta _247.jpg"
+  },
+  "kartarimukha": {
+   "frame": "Katrimukha(1)/Katrimukha_250.jpg"
+  },
+  "kartariswastika": {
+   "frame": "Kartariswastika(1)/Kartariswastika _149.jpg"
+  },
+  "katakamukha": {
+   "path": "poses/src/katakamukha.png",
+   "dark": true
+  },
+  "katakavardhana": {
+   "frame": "Katakavardhana(1)/Katakavardhana _617.jpg"
+  },
+  "khatva": {
+   "frame": "Khatva(1)/Khatva  _341.jpg"
+  },
+  "kilaka": {
+   "frame": "Kilaka(1)/Kilaka  _27.jpg"
+  },
+  "kurma": {
+   "frame": "Kurma(1)/Kurma  _414.jpg"
+  },
+  "matsya": {
+   "frame": "Matsya(1)/Matsya  _446.jpg"
+  },
+  "mayura": {
+   "frame": "Mayura(1)/Mayura_242.jpg"
+  },
+  "mrigashirsha": {
+   "frame": "Mrigasirsha(1)/Mrigasirsha_40.jpg"
+  },
+  "mukula": {
+   "frame": "Mukulam(1)/Mukulam_252.jpg"
+  },
+  "mushti": {
+   "frame": "Mushti(1)/Mushti_363.jpg"
+  },
+  "nagabandha": {
+   "frame": "Nagabandha(1)/Nagabandha  _141.jpg"
+  },
+  "padmakosha": {
+   "frame": "Padmakosha(1)/Padmakosha_366.jpg"
+  },
+  "pasha": {
+   "frame": "Pasha(1)/Pasha  _364.jpg"
+  },
+  "pataka": {
+   "frame": "Pathaka(1)/Pathaka_251.jpg"
+  },
+  "pushpaputa": {
+   "frame": "Pushpaputa(1)/Pushpaputa _587.jpg"
+  },
+  "samputa": {
+   "frame": "Samputa(1)/Samputa  _341.jpg"
+  },
+  "sarpasirsha": {
+   "frame": "Sarpasirsha(1)/Sarpasirsha_25.jpg"
+  },
+  "shakata": {
+   "frame": "Sakata(1)/Sakata _420.jpg"
+  },
+  "shankha": {
+   "frame": "Shanka(1)/Shanka _588.jpg"
+  },
+  "shikhara": {
+   "frame": "Sikharam(1)/Sikharam_385.jpg"
+  },
+  "shukatunda": {
+   "frame": "Shukatundam(1)/Shukatundam_40.jpg"
+  },
+  "simhamukha": {
+   "frame": "Simhamukham(1)/Simhamukham_239.jpg"
+  },
+  "suchi": {
+   "frame": "Suchi(1)/Suchi_229.jpg"
+  },
+  "swastika": {
+   "frame": "Swastikam(1)/Swastika​m _3.jpg"
+  },
+  "tamrachuda": {
+   "frame": "Tamarachudam(1)/Tamarachudam_40.jpg"
+  },
+  "tripataka": {
+   "frame": "Tripathaka(1)/Tripathaka_247.jpg"
+  },
+  "trishula": {
+   "frame": "Trishulam(1)/Trishulam_25.jpg"
+  }
+ }
+}

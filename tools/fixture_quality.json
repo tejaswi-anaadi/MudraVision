@@ -1,0 +1,10 @@
+{
+  "hamsapaksha": "extracted landmarks collapse the finger cluster; do not fit the photo (overlay-verified)",
+  "chatura": "hand scale/finger layout mis-fit on an oblique photo (overlay-verified)",
+  "varaha": "non-cutout photo, landmarks fit a different hand shape (overlay-verified)",
+  "bhramara": "landmarks collapse the index/middle/ring chains inside the palm while the photo shows them extended (overlay-verified)",
+  "mayura": "ambiguous: occluding fingers; landmarks put the thumb touch on the index, contradicting the definition (ring touches thumb)",
+  "kangula": "ambiguous: the bent ring finger in the photo is not captured; all four chains measure straight",
+  "trishula": "ambiguous: fit has the thumb touching the index; definition wants the thumb over the little finger",
+  "katakamukha": "ambiguous: photo shows thumb+index touching with the other three straight and the middle finger clear of the thumb, i.e. the Haṃsāsya shape, not thumb+index+middle meeting"
+}

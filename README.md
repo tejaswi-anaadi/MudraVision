@@ -1,11 +1,11 @@
-# Mudra Vision
+# Mudra Companion
 
 A self-paced introduction to the **hastas** of Bharatanāṭyam — and a
 live camera that recognises them as you form them. Runs entirely in the
 browser; nothing is uploaded.
 
 ## Live site
-<https://tejaswi-anaadi.github.io/MudraVision/>
+<https://mudracompanion.github.io/>
 
 ## What's in it
 - **Learn** — 69 mudras across four families (28 Asamyukta · 24 Samyukta ·
@@ -23,8 +23,8 @@ browser; nothing is uploaded.
 
 ## Tech
 - Pure static HTML / CSS / vanilla ES-module JS — no build step
-- MediaPipe Tasks Vision (Hand Landmarker + Selfie Segmenter) loaded from
-  jsDelivr CDN
+- MediaPipe Tasks Vision 1.2.3 (Hand Landmarker + Selfie Segmenter), pinned,
+  loaded from jsDelivr CDN
 - Three.js for the rotatable 3D skeleton viewer
 - IndexedDB for persisting captured mudras (photos as Blobs)
 
@@ -36,22 +36,88 @@ secure context to access the camera. Examples:
 python3 -m http.server 8088   # then open http://localhost:8088/
 ```
 
+## Recognition tests
+```bash
+npm test                              # single-hand fixtures + two-hand scenarios
+node tools/diagnose.mjs trishula      # why a pose scores the way it does
+node tools/features.mjs               # measured finger features for every fixture
+node tools/test_recognition.mjs --space=world   # compare landmark spaces
+```
+The tests replay the landmarks extracted from the reference photos in
+`poses/` through the **same pipeline the camera uses**: image landmarks
+(corrected for the webcam aspect ratio) for position, MediaPipe
+`worldLandmarks` for finger shape. They report top‑1, top‑3 and "would lock"
+(the app's own candidate rule). `tools/baseline.json` is a ratchet — a pose
+that passes there must keep passing. Fixtures whose extracted landmarks do not
+fit the photo are listed in `tools/fixture_quality.json` and excluded from the
+score. The fixtures are also the tuning set, so these numbers are an
+optimistic ceiling, not field accuracy.
+
+## The recognizer
+Live recognition combines two things:
+- **Learned models** (`models/single.json`, `models/two.json`): small neural
+  networks trained on ~5,000 real photographs of 15 dancers from the
+  Bharatanatyam Mudra Dataset — 29 single-hand and 21 two-hand classes. They
+  look at hand-shape features computed by `features.js`, the same file the
+  browser runs, so training and the live app can't drift apart. Accuracy is
+  measured on held-out blocks of frames (mostly unseen dancers) and recorded
+  in `models/eval.json`.
+- **Rules** (`classifier.js`, `mudras.js`) for mudras the dataset doesn't
+  cover (deity/avatar combinations, Saṃdaṃśa), discounted when the model is
+  confident the hand is something it knows.
+
+Rebuild the models (frames downloaded from the dataset into `FRAMES/<Folder>/<n>.jpg`):
+```bash
+python3 tools/extract_dataset.py FRAMES landmarks.jsonl
+node tools/build_features.mjs landmarks.jsonl features.json
+python3 tools/train_model.py features.json models/
+node tools/build_refs.mjs landmarks.jsonl      # reference 3D poses
+```
+
+## Measuring real accuracy (record your own hands)
+The reference photos can't prove accuracy: most mudras have no photo, several
+photos are near-identical hands, and the photos are also what the rules were
+tuned on. Record real hands instead:
+
+1. Open **Practice** and press **R** (or the **● Record** button).
+2. Pick a mudrā, hold it, press **Space**. After a 3‑second countdown it
+   records one *take* (12 frames). Do **5+ takes per mudrā**, varying angle,
+   distance, hand and lighting between takes. Two‑hand mudrās need both hands
+   in view; takes with the wrong hand count are discarded.
+3. **Export JSON**. Nothing leaves the browser until you do, and only
+   landmarks are stored — no camera images.
+4. Evaluate:
+```bash
+node tools/eval_dataset.mjs mudra-dataset-*.json          # DEV and TEST report
+node tools/eval_dataset.mjs mudra-dataset-*.json --gate   # exit 1 if TEST < 95%
+```
+Each mudrā's most recent takes (30%) are held out as **TEST**, split *by take*
+so near-identical frames can't leak. Tune rules on DEV only, then report TEST.
+The headline is macro **lock-correct**: the share of takes where the app's own
+6‑of‑8 consensus locks the *right* mudrā, averaged over mudrās.
+`node tools/synth_dataset.mjs out.json` makes a synthetic set to smoke-test the
+pipeline (it says nothing about accuracy; `npm test` runs that smoke test).
+
 ## Files
 | File | Role |
 |---|---|
 | `index.html` `styles.css` | Shell + theme |
 | `app.js` | View routing, Learn catalog, Practice loop, glue |
 | `landmarks.js` | Geometry helpers + normalisation for k-NN |
-| `classifier.js` | Rule-based mudra scoring + k-NN merger |
+| `classifier.js` | Combines learned models + rule scores (+ k-NN for your own captures) |
+| `features.js` | Hand-shape features + model inference, shared by browser and training |
+| `models/` | Trained recognition models and their held-out accuracy (`eval.json`) |
 | `mudras.js` | The 69-entry mudra database |
-| `svg.js` | Neon line-art per mudra |
-| `art.js` | Three-type visual selector (svg ▸ source ▸ scanned) |
-| `mediapipe.js` | Singleton loaders for HandLandmarker + ImageSegmenter |
+| `art.js` | Visual selector (scanned ▸ photo ▸ component-hand photos ▸ placeholder) |
+| `mediapipe.js` | Singleton loaders for HandLandmarker + ImageSegmenter (pinned CDN version, GPU→CPU fallback) |
+| `camera.js` | Opens the webcam and explains precisely why it failed (blocked / none / busy / timeout) |
 | `capture.js` | Guided 2-angle capture flow + hand segmentation |
 | `store.js` | IndexedDB CRUD + export/import |
+| `recorder.js` | Labelled-landmark dataset recorder (Practice → R) |
 | `knn.js` | In-memory k-NN classifier |
 | `viewer3d.js` | Three.js rotatable skeleton + photo turntable |
-| `images/` | Reference photographs (see `ATTRIBUTION.md`) |
+| `images/` | Real hand photographs on parchment (see `ATTRIBUTION.md`); built by `tools/build_plates.py` from dataset frames |
+| `poses/src/` | Original dataset photographs used to extract 3D poses (not displayed) |
 
 ## Credits
 Mudra reference photographs from the **Bharatanatyam Mudra Dataset** by

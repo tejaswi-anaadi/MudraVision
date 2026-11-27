@@ -1,36 +1,76 @@
 // art.js
-// Returns mudra art in one of three flavours, picked by priority:
+// Returns mudra art, picked by priority:
 //
-//   scanned (user's Capture front photo)  >  source (shipped image)  >  svg
+//   scanned (user's Capture front photo)  >  source (a real photograph)
+//     >  parts (the real photographs of the component hastas)  >  placeholder
 //
-// Built-in mudras may have any of the three. Captured mudras always have a
-// scanned photo and may inherit a source image from their builtinUpgrade slug.
+// Built-in mudras have a photograph ("source") or, for the deity/avatar
+// gestures that are defined as a combination of hastas, "parts": the real
+// photographs of each component hand, side by side. Captured mudras always
+// have a scanned photo and may inherit a source image from their builtinUpgrade.
 
-import { getSvg } from './svg.js';
+import { MUDRA_BY_ID } from './mudras.js';
 
 // ============================================================
 // Photo source registry
 // ============================================================
-const PHOTOS_JISHA = new Set([
-  'alapadma', 'anjali', 'arala', 'ardhachandra', 'ardhapataka',
-  'bhramara', 'chandrakala', 'chatura', 'garuda', 'hamsapaksha',
-  'hamsasya', 'kangula', 'kapittha', 'kapota', 'karkata',
-  'kartarimukha', 'katakamukha', 'mayura', 'mrigashirsha',
-  'mukula', 'mushti', 'padmakosha', 'pataka', 'sarpasirsha',
-  'shikhara', 'shukatunda', 'simhamukha', 'suchi', 'swastika',
-  'tamrachuda', 'tripataka', 'trishula',
+// Parchment plates: real photographs from the Jisha Raj R dataset, cut out of
+// the green screen and set on parchment (tools/build_plates.py), stored as .jpg.
+const PHOTOS_PLATES = new Set([
+  'alapadma', 'anjali', 'arala', 'ardhachandra', 'ardhapataka', 'bhramara',
+  'bherunda', 'chakra', 'chandrakala', 'chatura', 'garuda', 'hamsapaksha',
+  'hamsasya', 'kangula', 'kapittha', 'kapota', 'karkata', 'kartariswastika',
+  'kartarimukha', 'katakamukha', 'katakavardhana', 'khatva', 'kilaka', 'kurma',
+  'matsya', 'mayura', 'mrigashirsha', 'mukula', 'mushti', 'nagabandha',
+  'padmakosha', 'pasha', 'pataka', 'pushpaputa', 'samputa', 'sarpasirsha',
+  'shakata', 'shankha', 'shikhara', 'shukatunda', 'simhamukha', 'suchi',
+  'swastika', 'tamrachuda', 'tripataka', 'trishula',
 ]);
+// Wikimedia Commons photographs (light backgrounds), shown as they are (.png).
 const PHOTOS_WIKIMEDIA = new Set(['shivalinga', 'varaha']);
-export const PHOTO_IDS = new Set([...PHOTOS_JISHA, ...PHOTOS_WIKIMEDIA]);
+export const PHOTO_IDS = new Set([...PHOTOS_PLATES, ...PHOTOS_WIKIMEDIA]);
+
+// Avatar gestures that the mudra database defines as identical to a
+// two-hand hasta share that hasta's photograph.
+const PHOTO_ALIAS = {
+  matsyavatara: 'matsya',
+  kurmavatara: 'kurma',
+  varahavatara: 'varaha',
+};
+const resolvePhoto = (slug) => PHOTO_ALIAS[slug] || slug;
 
 export function hasPhoto(slug) {
-  return PHOTO_IDS.has(slug);
+  return PHOTO_IDS.has(resolvePhoto(slug));
 }
 
 function photoSource(slug) {
-  if (PHOTOS_JISHA.has(slug)) return 'jisha';
+  slug = resolvePhoto(slug);
+  if (PHOTOS_PLATES.has(slug)) return 'paper';
   if (PHOTOS_WIKIMEDIA.has(slug)) return 'wikimedia';
   return null;
+}
+
+function photoUrl(slug) {
+  slug = resolvePhoto(slug);
+  return `images/${slug}.${PHOTOS_WIKIMEDIA.has(slug) ? 'png' : 'jpg'}`;
+}
+
+// ============================================================
+// 3D-pose registry — slugs of mudras that ship with a poses/{slug}.json
+// extracted from a real reference photo. app.js populates this on boot
+// from the file's `poses_index.json` so the renderer can offer the 3D
+// view as a toggle option without making a fetch for every mudra.
+// ============================================================
+const posesAvailable = new Set();
+export function setAvailablePoses(slugs) {
+  posesAvailable.clear();
+  for (const s of slugs) posesAvailable.add(s);
+}
+export function hasPose(view) {
+  // True if this view has either captured worldLandmarks OR a pose file.
+  if (view.kind === 'capture' && view.record?.angles?.[0]?.worldLandmarks?.length) return true;
+  const slug = view.builtinUpgrade || view.id;
+  return posesAvailable.has(slug);
 }
 
 // ============================================================
@@ -60,7 +100,7 @@ export function getScannedFront(key) {
 // Visual selection
 // ============================================================
 // view: { id, svgId?, builtinUpgrade?, captureId? }
-//   svgId        — slug to feed getSvg(); falls back to a generic placeholder
+//   svgId        — slug of the built-in whose photo/parts to use
 //   builtinUpgrade — if set, source/svg may be inherited from that slug
 //   captureId    — uuid; scanned URL keyed by this
 export function getMudraVisuals(view) {
@@ -68,16 +108,27 @@ export function getMudraVisuals(view) {
   const sourceSlug = view.builtinUpgrade || slug;
   const scanned = (view.captureId && getScannedFront(view.captureId))
                || (view.builtinUpgrade && getScannedFront(view.builtinUpgrade))
-               || (PHOTO_IDS.has(view.id) ? null : null)   // built-ins look up by their own slug below
                || getScannedFront(view.id);
 
   const source = hasPhoto(sourceSlug)
-    ? { url: `images/${sourceSlug}.png`, kind: photoSource(sourceSlug) }
+    ? { url: photoUrl(sourceSlug), kind: photoSource(sourceSlug) }
+    : null;
+
+  // Deity/avatar gestures: the real photographs of the component hastas.
+  const parts = (!source && Array.isArray(view.parts) && view.parts.length)
+    ? view.parts.filter(p => hasPhoto(p.id)).map(p => ({
+        hand: p.hand,
+        id: p.id,
+        url: photoUrl(p.id),
+        kind: photoSource(p.id),
+        label: MUDRA_BY_ID[p.id]?.names?.iast || p.id,
+      }))
     : null;
 
   return {
-    svg: { markup: getSvg(slug) || genericMudraSvg(view.displayName || view.name || 'Captured') },
+    placeholder: { markup: genericMudraSvg(view.displayName || view.name || 'Captured') },
     source,
+    parts: parts && parts.length ? parts : null,
     scanned,
   };
 }
@@ -86,14 +137,18 @@ export function pickBaseVisual(view) {
   const v = getMudraVisuals(view);
   if (v.scanned) return { type: 'scanned', url: v.scanned };
   if (v.source)  return { type: 'source',  url: v.source.url, kind: v.source.kind };
-  return { type: 'svg', markup: v.svg.markup };
+  if (v.parts)   return { type: 'parts' };
+  return { type: 'placeholder', markup: v.placeholder.markup };
 }
 
 export function getAvailableTypes(view) {
   const v = getMudraVisuals(view);
-  const types = ['svg'];
+  const types = [];
   if (v.source) types.push('source');
+  if (v.parts) types.push('parts');
   if (v.scanned) types.push('scanned');
+  if (hasPose(view)) types.push('3d');
+  if (!types.length) types.push('placeholder');
   return types;
 }
 
@@ -111,7 +166,7 @@ export function preloadSourcePhotos() {
     const img = new Image();
     img.decoding = 'async';
     if ('fetchPriority' in img) img.fetchPriority = 'low';
-    img.src = `images/${slug}.png`;
+    img.src = photoUrl(slug);
   }
 }
 
@@ -120,6 +175,24 @@ export function preloadSourcePhotos() {
 // `opts.eager` forces immediate loading (no `loading="lazy"`) — used by
 // the Practice card so the photo paints the instant the card appears.
 // ============================================================
+function partsHTML(parts, lazy) {
+  // "Both hands" shows the same real photograph twice, the second mirrored.
+  const items = [];
+  for (const p of parts) {
+    if (p.hand === 'Both') {
+      items.push({ ...p, caption: `Both hands · ${p.label}`, mirror: false });
+      items.push({ ...p, caption: '', mirror: true });
+    } else {
+      items.push({ ...p, caption: `${p.hand} · ${p.label}`, mirror: false });
+    }
+  }
+  return `<div class="mudra-parts" data-count="${items.length}">` + items.map(it => `
+    <figure>
+      <img class="mudra-photo${it.mirror ? ' mirrored' : ''}" src="${it.url}" alt=""${lazy} decoding="async" data-source="${it.kind}">
+      <figcaption>${it.caption || '&nbsp;'}</figcaption>
+    </figure>`).join('') + `</div>`;
+}
+
 export function renderVisual(view, type, opts = {}) {
   const v = getMudraVisuals(view);
   const lazy = opts.eager ? '' : ' loading="lazy"';
@@ -127,26 +200,22 @@ export function renderVisual(view, type, opts = {}) {
     case 'scanned':
       return v.scanned
         ? `<img class="mudra-photo mudra-scanned" src="${v.scanned}" alt="" decoding="async">`
-        : renderVisual(view, 'svg', opts);
+        : renderVisual(view, 'placeholder', opts);
     case 'source':
       return v.source
         ? `<img class="mudra-photo" src="${v.source.url}" alt=""${lazy} decoding="async" data-source="${v.source.kind}">`
-        : renderVisual(view, 'svg', opts);
-    case 'svg':
+        : renderVisual(view, 'placeholder', opts);
+    case 'parts':
+      return v.parts ? partsHTML(v.parts, lazy) : renderVisual(view, 'placeholder', opts);
+    case 'placeholder':
     default:
-      return `<div class="mudra-svg">${v.svg.markup}</div>`;
+      return `<div class="mudra-svg">${v.placeholder.markup}</div>`;
   }
 }
 
 // Default base-priority art for cards.
 export function mudraArt(view, opts = {}) {
-  const base = pickBaseVisual(view);
-  const lazy = opts.eager ? '' : ' loading="lazy"';
-  switch (base.type) {
-    case 'scanned': return `<img class="mudra-photo mudra-scanned" src="${base.url}" alt="" decoding="async">`;
-    case 'source':  return `<img class="mudra-photo" src="${base.url}" alt=""${lazy} decoding="async" data-source="${base.kind}">`;
-    case 'svg':     return `<div class="mudra-svg">${base.markup}</div>`;
-  }
+  return renderVisual(view, pickBaseVisual(view).type, opts);
 }
 
 // SVG fallback wiring for source <img> elements that fail to load.
@@ -191,6 +260,7 @@ export function viewFromBuiltin(mudra) {
     usage: mudra.usage,
     howto: mudra.howto,
     hands: mudra.hands,
+    parts: mudra.parts || null,
     reliable: mudra.reliable,
     category: mudra.category,
     is3D: false,

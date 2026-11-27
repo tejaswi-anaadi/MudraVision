@@ -1,0 +1,21 @@
+{
+  "name": "mudra-companion",
+  "private": true,
+  "type": "module",
+  "description": "Bharatanatyam hasta (mudra) learning app with live camera recognition.",
+  "scripts": {
+    "test": "node tools/test_recognition.mjs --rules-only && node tools/test_twohand.mjs && node tools/test_eval_smoke.mjs && node tools/test_models.mjs",
+    "test:single": "node tools/test_recognition.mjs",
+    "test:two": "node tools/test_twohand.mjs",
+    "diagnose": "node tools/diagnose.mjs",
+    "features": "node tools/features.mjs",
+    "serve": "python3 -m http.server 8088",
+    "test:eval": "node tools/test_eval_smoke.mjs",
+    "eval": "node tools/eval_dataset.mjs",
+    "synth": "node tools/synth_dataset.mjs",
+    "test:models": "node tools/test_models.mjs"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
